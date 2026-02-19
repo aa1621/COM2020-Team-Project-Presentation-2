@@ -37,7 +37,7 @@ export default function LoginPage() {
       <div className="mx-auto max-w-md rounded-2xl border border-gray-100 bg-white/80 p-6 shadow-sm">
         <PageShell
           title="Login"
-          subtitle="Use a demo login for CW1. Real auth can be added later."
+          subtitle="Account creation coming in the second sprint"
         >
           <form className="space-y-3" onSubmit={onSubmit}>
             <input
@@ -71,7 +71,6 @@ export default function LoginPage() {
             )}
 
             <p className="text-xs text-gray-500">
-              For CW1, this can be a demo flow. Later: JWT + role-based access.
             </p>
           </form>
         </PageShell>
