@@ -2,6 +2,13 @@ import { PET_TEMPLATES, SDG_BADGES, SHOP_ITEMS } from "./catalog";
 
 export type PetStatus = "alive" | "needs-revive";
 
+export type ActionRewardResult = {
+  coinsEarned: number;
+  happinessGain: number;
+  energyGain: number;
+  state: GamificationState;
+};
+
 export type GamificationState = {
   coins: number;
   reviveCostCoins: number;
@@ -205,4 +212,33 @@ export function setPetStatus(userId: string, status: PetStatus) {
 
   saveGamificationState(userId, nextState);
   return nextState;
+}
+
+export function applyActionLogReward(userId: string, score: number): ActionRewardResult | null {
+  const state = getGamificationState(userId);
+  if (!state) return null;
+
+  const coinsEarned = Math.max(8, Math.min(40, Math.round(score / 4)));
+  const happinessGain = Math.max(4, Math.min(12, Math.round(coinsEarned / 3)));
+  const energyGain = Math.max(3, Math.min(10, Math.round(coinsEarned / 4)));
+
+  const nextState: GamificationState = {
+    ...state,
+    coins: state.coins + coinsEarned,
+    pet: {
+      ...state.pet,
+      happiness: Math.min(100, state.pet.happiness + happinessGain),
+      energy: Math.min(100, state.pet.energy + energyGain),
+      health: Math.min(100, state.pet.health + Math.max(1, Math.round(happinessGain / 3))),
+    },
+  };
+
+  saveGamificationState(userId, nextState);
+
+  return {
+    coinsEarned,
+    happinessGain,
+    energyGain,
+    state: nextState,
+  };
 }
