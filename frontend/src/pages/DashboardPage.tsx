@@ -3,6 +3,7 @@ import { getDemoUser } from "../auth/demoAuth";
 import { apiFetch } from "../api/client";
 import { getActionLogs } from "../api/actionLogs";
 import type { ActionType, GetActionTypesResponse } from "../api/types";
+import { ensureGamificationState, getPetTemplate } from "../gamification/store";
 
 type DateRangeOption = 7 | 30;
 
@@ -31,6 +32,8 @@ function buildDateRange(days: number) {
 export default function DashboardPage() {
   const user = getDemoUser();
   const displayName = user?.display_name || user?.username || "there";
+  const petState = user?.user_id ? ensureGamificationState(user.user_id) : null;
+  const petTemplate = petState ? getPetTemplate(petState.pet.templateId) : null;
 
   const [actionTypes, setActionTypes] = useState<ActionType[]>([]);
   const [logs, setLogs] = useState<
@@ -145,6 +148,71 @@ export default function DashboardPage() {
         <h1 className="text-2xl font-semibold text-gray-900">Hi {displayName}</h1>
         <p className="text-sm text-gray-600">Here is your sustainability progress so far.</p>
       </header>
+
+      {petState && petTemplate ? (
+        <section className="overflow-hidden rounded-[2rem] border border-emerald-100 bg-white shadow-sm">
+          <div className={`grid gap-0 lg:grid-cols-[0.95fr_1.05fr]`}>
+            <div className={`bg-gradient-to-br ${petTemplate.accentClass} p-6`}>
+              <div className="flex items-center gap-4 rounded-[1.5rem] bg-white/70 p-4 backdrop-blur">
+                <img
+                  src={petTemplate.image}
+                  alt={petTemplate.name}
+                  className="h-24 w-24 rounded-[1.25rem] bg-white object-cover"
+                />
+                <div>
+                  <div className="text-xs uppercase tracking-[0.2em] text-gray-600">
+                    Pet companion
+                  </div>
+                  <div className="mt-1 text-2xl font-semibold text-gray-950">
+                    {petState.pet.nickname}
+                  </div>
+                  <div className="mt-1 text-sm text-gray-700">{petTemplate.tagline}</div>
+                </div>
+              </div>
+            </div>
+
+            <div className="grid gap-3 p-6 sm:grid-cols-3">
+              <div className="rounded-2xl bg-gray-50 p-4">
+                <div className="text-xs text-gray-500">CG67coin</div>
+                <div className="mt-1 text-2xl font-semibold text-gray-950">{petState.coins}</div>
+              </div>
+              <div className="rounded-2xl bg-gray-50 p-4">
+                <div className="text-xs text-gray-500">Pet streak</div>
+                <div className="mt-1 text-2xl font-semibold text-gray-950">
+                  {petState.pet.streakDays} days
+                </div>
+              </div>
+              <div className="rounded-2xl bg-gray-50 p-4">
+                <div className="text-xs text-gray-500">Status</div>
+                <div
+                  className={`mt-1 text-sm font-semibold ${
+                    petState.pet.status === "alive" ? "text-emerald-700" : "text-rose-700"
+                  }`}
+                >
+                  {petState.pet.status === "alive" ? "Alive and active" : "Needs revive"}
+                </div>
+              </div>
+
+              <div className="rounded-2xl border border-gray-100 bg-white p-4 sm:col-span-3">
+                <div className="flex items-center justify-between text-xs text-gray-500">
+                  <span>Energy</span>
+                  <span>{petState.pet.energy}%</span>
+                </div>
+                <div className="mt-2 h-2 rounded-full bg-gray-100">
+                  <div
+                    className="h-2 rounded-full bg-amber-400"
+                    style={{ width: `${petState.pet.energy}%` }}
+                  />
+                </div>
+                <div className="mt-3 text-xs text-gray-600">
+                  Your pet system is now visible from the dashboard and ready to be linked to real
+                  actions and challenge rewards later.
+                </div>
+              </div>
+            </div>
+          </div>
+        </section>
+      ) : null}
 
       {/* Chart card */}
       <section className="rounded-2xl border border-gray-100 bg-white/80 p-6 shadow-sm">
