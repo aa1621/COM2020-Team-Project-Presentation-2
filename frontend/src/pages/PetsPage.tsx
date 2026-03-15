@@ -14,6 +14,29 @@ import {
   type GamificationState,
 } from "../gamification/store";
 
+const PET_ONBOARDING_STORAGE_KEY = "pets_onboarding_seen";
+
+const PET_ONBOARDING_STEPS = [
+  {
+    eyebrow: "Welcome",
+    title: "Meet your campus companion",
+    body:
+      "Your pet is the emotional center of the sustainability experience. As you log actions and stay active, your companion reflects that progress.",
+  },
+  {
+    eyebrow: "How it works",
+    title: "Health, happiness, and energy all matter",
+    body:
+      "Your pet has live wellbeing stats. Sustainable activity helps keep it strong, while long gaps and bad states can leave it needing attention or revival.",
+  },
+  {
+    eyebrow: "Rewards",
+    title: "Coins, badges, and accessories build the loop",
+    body:
+      "You earn CG67coin from climate-positive actions, unlock badges as you progress, and use the shop to equip items or recover your pet when needed.",
+  },
+] as const;
+
 function StatBar({
   label,
   value,
@@ -36,14 +59,118 @@ function StatBar({
   );
 }
 
+function OnboardingModal({
+  stepIndex,
+  onNext,
+  onBack,
+  onClose,
+}: {
+  stepIndex: number;
+  onNext: () => void;
+  onBack: () => void;
+  onClose: () => void;
+}) {
+  const step = PET_ONBOARDING_STEPS[stepIndex];
+  const isFirst = stepIndex === 0;
+  const isLast = stepIndex === PET_ONBOARDING_STEPS.length - 1;
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-[rgba(20,32,24,0.58)] p-4 backdrop-blur-sm">
+      <div className="w-full max-w-2xl overflow-hidden rounded-[2rem] border border-white/60 bg-[linear-gradient(140deg,rgba(239,252,242,0.98),rgba(255,248,234,0.98))] shadow-[0_30px_80px_rgba(17,24,39,0.22)]">
+        <div className="grid gap-0 lg:grid-cols-[0.92fr_1.08fr]">
+          <div className="flex min-h-[20rem] flex-col justify-between bg-[linear-gradient(160deg,rgba(22,163,74,0.16),rgba(251,191,36,0.16))] p-6">
+            <div>
+              <div className="app-chip bg-white/80">{step.eyebrow}</div>
+              <div className="mt-6 flex h-40 w-40 items-center justify-center rounded-[2rem] bg-white/85 text-4xl font-semibold text-[rgb(var(--app-ink))] shadow-sm">
+                {String(stepIndex + 1).padStart(2, "0")}
+              </div>
+            </div>
+
+            <div className="mt-6 flex gap-2">
+              {PET_ONBOARDING_STEPS.map((_, index) => (
+                <div
+                  key={index}
+                  className={`h-2 flex-1 rounded-full ${
+                    index === stepIndex ? "bg-emerald-500" : "bg-white/80"
+                  }`}
+                />
+              ))}
+            </div>
+          </div>
+
+          <div className="flex flex-col p-6 lg:p-8">
+            <div className="flex items-start justify-between gap-4">
+              <div>
+                <div className="text-xs font-semibold uppercase tracking-[0.2em] text-emerald-700">
+                  Pet guide
+                </div>
+                <h2 className="mt-3 text-3xl font-semibold tracking-tight text-[rgb(var(--app-ink))]">
+                  {step.title}
+                </h2>
+              </div>
+              <button
+                type="button"
+                onClick={onClose}
+                className="rounded-full border border-[rgb(var(--app-line))] bg-white px-3 py-2 text-xs font-semibold uppercase tracking-wide text-[rgb(var(--app-ink))]"
+              >
+                Skip
+              </button>
+            </div>
+
+            <p className="mt-5 max-w-lg text-sm leading-7 app-muted">{step.body}</p>
+
+            <div className="mt-6 grid gap-3 rounded-[1.5rem] bg-white/80 p-4">
+              <div className="text-sm font-semibold text-[rgb(var(--app-ink))]">In this hub you can:</div>
+              <div className="grid gap-2 text-sm app-muted">
+                <div>Track your pet's wellbeing and current status.</div>
+                <div>Rename your companion and manage equipped accessories.</div>
+                <div>See earned SDG badges and respond if your pet needs reviving.</div>
+              </div>
+            </div>
+
+            <div className="mt-auto flex items-center justify-between gap-3 pt-8">
+              <button
+                type="button"
+                onClick={onBack}
+                disabled={isFirst}
+                className="rounded-2xl border border-[rgb(var(--app-line))] bg-white px-4 py-3 text-sm font-semibold text-[rgb(var(--app-ink))] disabled:opacity-40"
+              >
+                Back
+              </button>
+              <button
+                type="button"
+                onClick={isLast ? onClose : onNext}
+                className="rounded-2xl bg-[rgb(var(--app-brand))] px-5 py-3 text-sm font-semibold text-white"
+              >
+                {isLast ? "Start caring for pet" : "Next"}
+              </button>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 export default function PetsPage() {
   const user = getDemoUser();
   const [state, setState] = useState<GamificationState | null>(null);
   const [message, setMessage] = useState<string | null>(null);
+  const [showOnboarding, setShowOnboarding] = useState(false);
+  const [onboardingStep, setOnboardingStep] = useState(0);
 
   useEffect(() => {
     if (!user?.user_id) return;
     setState(ensureGamificationState(user.user_id));
+  }, [user?.user_id]);
+
+  useEffect(() => {
+    if (!user?.user_id) return;
+    const seen = localStorage.getItem(`${PET_ONBOARDING_STORAGE_KEY}:${user.user_id}`);
+    if (!seen) {
+      setShowOnboarding(true);
+      setOnboardingStep(0);
+    }
   }, [user?.user_id]);
 
   if (!user) {
@@ -76,6 +203,13 @@ export default function PetsPage() {
   function refresh(nextState: GamificationState | null, nextMessage?: string) {
     if (nextState) setState(nextState);
     setMessage(nextMessage ?? null);
+  }
+
+  function closeOnboarding() {
+    if (currentUser?.user_id) {
+      localStorage.setItem(`${PET_ONBOARDING_STORAGE_KEY}:${currentUser.user_id}`, "true");
+    }
+    setShowOnboarding(false);
   }
 
   function handleNicknameChange(nickname: string) {
@@ -131,11 +265,48 @@ export default function PetsPage() {
   }
 
   return (
-    <PageShell
-      title="Pets"
-      subtitle="A companion-led sustainability layer with stats, rewards, accessories, and SDG badge progress."
-    >
-      <div className="grid gap-6 xl:grid-cols-[1.12fr_0.88fr]">
+    <>
+      {showOnboarding ? (
+        <OnboardingModal
+          stepIndex={onboardingStep}
+          onBack={() => setOnboardingStep((step) => Math.max(0, step - 1))}
+          onNext={() =>
+            setOnboardingStep((step) => Math.min(PET_ONBOARDING_STEPS.length - 1, step + 1))
+          }
+          onClose={closeOnboarding}
+        />
+      ) : null}
+
+      <PageShell
+        title="Pets"
+        subtitle="A companion-led sustainability layer with stats, rewards, accessories, and SDG badge progress."
+      >
+        <div className="mb-6 rounded-[1.75rem] border border-emerald-100 bg-[linear-gradient(135deg,rgba(236,253,245,0.92),rgba(255,251,235,0.92))] p-5">
+          <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
+            <div>
+              <div className="app-chip bg-white/85">New here?</div>
+              <div className="mt-3 text-xl font-semibold text-[rgb(var(--app-ink))]">
+                Learn how the pet system works
+              </div>
+              <p className="mt-2 max-w-2xl text-sm app-muted">
+                Open the companion guide anytime for a quick walkthrough of stats, rewards,
+                badges, revival, and how this page fits into the finished experience.
+              </p>
+            </div>
+            <button
+              type="button"
+              onClick={() => {
+                setOnboardingStep(0);
+                setShowOnboarding(true);
+              }}
+              className="rounded-2xl border border-white/70 bg-white px-4 py-3 text-sm font-semibold text-[rgb(var(--app-ink))] shadow-sm"
+            >
+              Open pet guide
+            </button>
+          </div>
+        </div>
+
+        <div className="grid gap-6 xl:grid-cols-[1.12fr_0.88fr]">
         <section className="space-y-6">
           <div className="app-card overflow-hidden">
             <div className={`bg-gradient-to-br ${petDisplay.accentClass} p-6`}>
@@ -323,7 +494,8 @@ export default function PetsPage() {
             </div>
           )}
         </section>
-      </div>
-    </PageShell>
+        </div>
+      </PageShell>
+    </>
   );
 }
