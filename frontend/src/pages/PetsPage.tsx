@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import PageShell from "../components/PageShell";
 import { getDemoUser } from "../auth/demoAuth";
 import {
@@ -38,6 +38,89 @@ const PET_ONBOARDING_STEPS = [
 ] as const;
 
 type PetEventModalKind = "warning" | "critical" | "revived";
+
+function clampPercentage(value: number) {
+  return Math.max(0, Math.min(100, value));
+}
+
+function getPetMood(state: GamificationState) {
+  if (state.pet.status === "needs-revive") {
+    return {
+      label: "Critical",
+      summary: "Your companion has fully crashed and needs revival support.",
+      chip: "bg-rose-100 text-rose-700",
+    };
+  }
+
+  const average = (state.pet.health + state.pet.happiness + state.pet.energy) / 3;
+
+  if (average >= 85) {
+    return {
+      label: "Thriving",
+      summary: "Everything is stable and your pet is in excellent shape.",
+      chip: "bg-emerald-100 text-emerald-700",
+    };
+  }
+
+  if (average >= 60) {
+    return {
+      label: "Steady",
+      summary: "Your pet is doing well, with room for a little extra momentum.",
+      chip: "bg-sky-100 text-sky-700",
+    };
+  }
+
+  if (average >= 35) {
+    return {
+      label: "Worried",
+      summary: "Stats are slipping and your companion needs attention soon.",
+      chip: "bg-amber-100 text-amber-700",
+    };
+  }
+
+  return {
+    label: "Fading",
+    summary: "Your companion is close to a full collapse if nothing changes.",
+    chip: "bg-rose-100 text-rose-700",
+  };
+}
+
+function getCarePriority(state: GamificationState) {
+  const metrics = [
+    { label: "Health", value: state.pet.health },
+    { label: "Happiness", value: state.pet.happiness },
+    { label: "Energy", value: state.pet.energy },
+  ].sort((a, b) => a.value - b.value);
+
+  return metrics[0];
+}
+
+function getCompanionFeed(state: GamificationState, equippedCount: number, badgeCount: number) {
+  return [
+    {
+      label: "Companion linked",
+      detail: `Adopted ${new Date(state.pet.adoptedAt).toLocaleDateString()}`,
+    },
+    {
+      label: "Current streak",
+      detail: `${state.pet.streakDays} day${state.pet.streakDays === 1 ? "" : "s"} of momentum`,
+    },
+    {
+      label: "Loadout status",
+      detail:
+        equippedCount > 0
+          ? `${equippedCount} accessory slot${equippedCount === 1 ? "" : "s"} active`
+          : "No accessories equipped yet",
+    },
+    {
+      label: "Badge progress",
+      detail:
+        badgeCount > 0
+          ? `${badgeCount} SDG badge${badgeCount === 1 ? "" : "s"} already earned`
+          : "No badges unlocked yet",
+    },
+  ];
+}
 
 function StatBar({
   label,
@@ -87,7 +170,6 @@ function OnboardingModal({
                 {String(stepIndex + 1).padStart(2, "0")}
               </div>
             </div>
-
             <div className="mt-6 flex gap-2">
               {PET_ONBOARDING_STEPS.map((_, index) => (
                 <div
@@ -99,7 +181,6 @@ function OnboardingModal({
               ))}
             </div>
           </div>
-
           <div className="flex flex-col p-6 lg:p-8">
             <div className="flex items-start justify-between gap-4">
               <div>
@@ -118,18 +199,17 @@ function OnboardingModal({
                 Skip
               </button>
             </div>
-
             <p className="mt-5 max-w-lg text-sm leading-7 app-muted">{step.body}</p>
-
             <div className="mt-6 grid gap-3 rounded-[1.5rem] bg-white/80 p-4">
-              <div className="text-sm font-semibold text-[rgb(var(--app-ink))]">In this hub you can:</div>
+              <div className="text-sm font-semibold text-[rgb(var(--app-ink))]">
+                In this hub you can:
+              </div>
               <div className="grid gap-2 text-sm app-muted">
                 <div>Track your pet's wellbeing and current status.</div>
                 <div>Rename your companion and manage equipped accessories.</div>
                 <div>See earned SDG badges and respond if your pet needs reviving.</div>
               </div>
             </div>
-
             <div className="mt-auto flex items-center justify-between gap-3 pt-8">
               <button
                 type="button"
@@ -162,6 +242,8 @@ function PetEventModal({
   secondaryLabel,
   onPrimary,
   onSecondary,
+  errorMessage,
+  isInvalid,
 }: {
   kind: PetEventModalKind;
   title: string;
@@ -170,6 +252,8 @@ function PetEventModal({
   secondaryLabel?: string;
   onPrimary: () => void;
   onSecondary?: () => void;
+  errorMessage?: string | null;
+  isInvalid?: boolean;
 }) {
   const theme =
     kind === "revived"
@@ -197,10 +281,30 @@ function PetEventModal({
           };
 
   return (
-    <div className={`fixed inset-0 z-50 flex items-center justify-center p-4 backdrop-blur-sm ${theme.shell}`}>
-      <div className={`w-full max-w-xl rounded-[2rem] border border-white/70 p-6 shadow-[0_28px_90px_rgba(15,23,42,0.22)] ${theme.card}`}>
+    <div
+      className={`fixed inset-0 z-50 flex items-center justify-center p-4 backdrop-blur-sm ${theme.shell}`}
+    >
+      <style>{`
+        @keyframes pet-modal-shake {
+          0% { transform: translateX(0); }
+          25% { transform: translateX(-8px); }
+          50% { transform: translateX(8px); }
+          75% { transform: translateX(-6px); }
+          100% { transform: translateX(0); }
+        }
+      `}</style>
+      <div
+        className={`w-full max-w-xl rounded-[2rem] border border-white/70 p-6 shadow-[0_28px_90px_rgba(15,23,42,0.22)] ${
+          isInvalid
+            ? "bg-[linear-gradient(145deg,rgba(229,231,235,0.98),rgba(243,244,246,0.96))] grayscale-[0.2]"
+            : theme.card
+        }`}
+        style={isInvalid ? { animation: "pet-modal-shake 0.35s ease-in-out" } : undefined}
+      >
         <div className="flex items-start justify-between gap-4">
-          <div className={`rounded-full px-3 py-2 text-xs font-semibold uppercase tracking-[0.18em] ${theme.badge}`}>
+          <div
+            className={`rounded-full px-3 py-2 text-xs font-semibold uppercase tracking-[0.18em] ${theme.badge}`}
+          >
             {kind === "revived" ? "Recovered" : kind === "critical" ? "Needs revive" : "Warning"}
           </div>
           {onSecondary ? (
@@ -213,7 +317,6 @@ function PetEventModal({
             </button>
           ) : null}
         </div>
-
         <div className="mt-5 flex items-center gap-4">
           <div className="relative flex h-20 w-20 items-center justify-center rounded-[1.6rem] bg-white shadow-sm">
             <div className={`absolute h-10 w-10 rounded-full opacity-20 blur-xl ${theme.orb}`} />
@@ -226,7 +329,6 @@ function PetEventModal({
             <p className="mt-2 max-w-lg text-sm leading-7 app-muted">{body}</p>
           </div>
         </div>
-
         <div className="mt-6 rounded-[1.4rem] bg-white/75 p-4 text-sm app-muted">
           {kind === "revived"
             ? "Your companion has stabilized and can keep earning progress with your next climate-positive actions."
@@ -234,7 +336,11 @@ function PetEventModal({
               ? "Use coins or a revive item to bring your companion back before continuing."
               : "Logging actions and staying active will help your companion recover before it reaches a critical state."}
         </div>
-
+        {errorMessage ? (
+          <div className="mt-4 rounded-[1.2rem] bg-gray-900 px-4 py-3 text-sm text-white">
+            {errorMessage}
+          </div>
+        ) : null}
         <div className="mt-6 flex flex-wrap justify-end gap-3">
           {onSecondary ? (
             <button
@@ -267,6 +373,9 @@ export default function PetsPage() {
   const [eventModal, setEventModal] = useState<PetEventModalKind | null>(null);
   const [warningDismissed, setWarningDismissed] = useState(false);
   const [criticalDismissed, setCriticalDismissed] = useState(false);
+  const [modalError, setModalError] = useState<string | null>(null);
+  const [modalShake, setModalShake] = useState(false);
+  const wellbeingRef = useRef<HTMLDivElement | null>(null);
 
   useEffect(() => {
     if (!user?.user_id) return;
@@ -289,6 +398,7 @@ export default function PetsPage() {
       if (!criticalDismissed) {
         setEventModal("critical");
       }
+      setModalError(null);
       setWarningDismissed(false);
       return;
     }
@@ -296,12 +406,14 @@ export default function PetsPage() {
     const isWarningRange = state.pet.health <= 35 || state.pet.energy <= 35;
     if (isWarningRange && !warningDismissed && eventModal !== "revived") {
       setEventModal("warning");
+      setModalError(null);
       return;
     }
 
     if (!isWarningRange && eventModal === "warning") {
       setEventModal(null);
     }
+
     if (criticalDismissed) {
       setCriticalDismissed(false);
     }
@@ -332,6 +444,16 @@ export default function PetsPage() {
   const ownedItems = getOwnedShopItems(currentState);
   const equippedItems = SHOP_ITEMS.filter((item) =>
     currentState.pet.equippedItemIds.includes(item.id)
+  );
+  const petMood = getPetMood(currentState);
+  const carePriority = getCarePriority(currentState);
+  const wellbeingAverage = Math.round(
+    (currentState.pet.health + currentState.pet.happiness + currentState.pet.energy) / 3
+  );
+  const companionFeed = getCompanionFeed(
+    currentState,
+    equippedItems.length,
+    earnedBadges.length
   );
 
   function refresh(nextState: GamificationState | null, nextMessage?: string) {
@@ -365,10 +487,15 @@ export default function PetsPage() {
     const result = revivePetWithCoins(currentUser.user_id);
     if (!result.ok) {
       setMessage(result.error);
+      setModalError(result.error);
+      setModalShake(true);
+      window.setTimeout(() => setModalShake(false), 400);
       return;
     }
     setWarningDismissed(false);
     setCriticalDismissed(false);
+    setModalError(null);
+    setModalShake(false);
     setEventModal("revived");
     refresh(result.state, "Your pet is back and ready for more climate missions.");
   }
@@ -381,6 +508,7 @@ export default function PetsPage() {
   function handleDemoPetDown() {
     const nextState = setPetStatus(currentUser.user_id, "needs-revive");
     setCriticalDismissed(false);
+    setModalError(null);
     refresh(nextState, "Demo state: your pet now needs reviving.");
   }
 
@@ -399,6 +527,8 @@ export default function PetsPage() {
       setEventModal(null);
       setWarningDismissed(false);
       setCriticalDismissed(false);
+      setModalError(null);
+      setModalShake(false);
       refresh(restoredState, "Demo state restored.");
       return;
     }
@@ -418,7 +548,15 @@ export default function PetsPage() {
     };
     saveGamificationState(currentUser.user_id, nextState);
     setWarningDismissed(false);
+    setModalError(null);
     refresh(nextState, "Demo state: your pet is now in a warning condition.");
+  }
+
+  function handleCheckStats() {
+    setEventModal(null);
+    window.setTimeout(() => {
+      wellbeingRef.current?.scrollIntoView({ behavior: "smooth", block: "center" });
+    }, 120);
   }
 
   return (
@@ -440,7 +578,7 @@ export default function PetsPage() {
           body="Energy and health have dropped into the danger zone. A few more good actions can steady things before your pet needs reviving."
           primaryLabel="Check pet stats"
           secondaryLabel="Dismiss"
-          onPrimary={() => setEventModal(null)}
+          onPrimary={handleCheckStats}
           onSecondary={() => {
             setWarningDismissed(true);
             setEventModal(null);
@@ -455,6 +593,8 @@ export default function PetsPage() {
           primaryLabel={`Revive with ${state?.reviveCostCoins ?? 500} CG67coin`}
           secondaryLabel="Stay on page"
           onPrimary={handleRevive}
+          errorMessage={modalError}
+          isInvalid={modalShake}
           onSecondary={() => {
             setCriticalDismissed(true);
             setEventModal(null);
@@ -500,201 +640,450 @@ export default function PetsPage() {
           </div>
         </div>
 
-        <div className="grid gap-6 xl:grid-cols-[1.12fr_0.88fr]">
-        <section className="space-y-6">
-          <div className="app-card overflow-hidden">
-            <div className={`bg-gradient-to-br ${petDisplay.accentClass} p-6`}>
-              <div className="grid gap-5 lg:grid-cols-[0.88fr_1.12fr]">
-                <div className="flex min-h-80 items-center justify-center rounded-[1.6rem] bg-white/62 p-4 backdrop-blur">
-                  <div className="flex h-48 w-48 items-center justify-center rounded-[2rem] bg-white text-6xl font-semibold text-[rgb(var(--app-ink))] shadow-sm">
-                    {petDisplay.avatarLabel}
-                  </div>
-                </div>
+        <div className="grid gap-6 2xl:grid-cols-[minmax(0,1.18fr)_minmax(20rem,0.82fr)]">
+          <section className="space-y-6">
+            <div className="relative overflow-hidden rounded-[2rem] border border-[rgb(var(--app-line))] bg-[linear-gradient(135deg,rgba(247,252,249,0.96),rgba(255,247,237,0.96))] p-6 shadow-sm">
+              <div className="pointer-events-none absolute -right-16 -top-16 h-48 w-48 rounded-full bg-emerald-200/50 blur-3xl" />
+              <div className="pointer-events-none absolute -bottom-20 left-10 h-48 w-48 rounded-full bg-amber-200/40 blur-3xl" />
 
-                <div className="space-y-4 rounded-[1.6rem] bg-white/82 p-5 backdrop-blur">
-                  <div className="flex flex-wrap items-start justify-between gap-3">
-                    <div>
-                      <div className="app-chip">Active companion</div>
-                      <h2 className="mt-3 text-3xl font-semibold tracking-tight text-[rgb(var(--app-ink))]">
-                        {state.pet.nickname}
-                      </h2>
-                      <p className="mt-1 text-sm app-muted">{petDisplay.tagline}</p>
-                    </div>
-                    <div
-                      className={`rounded-full px-4 py-2 text-xs font-semibold uppercase tracking-wide ${
-                        state.pet.status === "alive"
-                          ? "bg-emerald-100 text-emerald-800"
-                          : "bg-rose-100 text-rose-700"
-                      }`}
-                    >
-                      {state.pet.status === "alive" ? "Alive and active" : "Needs revive"}
-                    </div>
-                  </div>
-
-                  <div className="grid gap-3 sm:grid-cols-3">
-                    <div className="app-stat">
-                      <div className="text-xs uppercase tracking-wide app-muted">Level</div>
-                      <div className="mt-1 text-2xl font-semibold text-[rgb(var(--app-ink))]">
-                        {state.pet.level}
+              <div className="relative grid gap-6 2xl:grid-cols-[minmax(0,0.95fr)_minmax(0,1.05fr)]">
+                <div
+                  className={`overflow-hidden rounded-[1.8rem] bg-gradient-to-br ${petDisplay.accentClass} p-5`}
+                >
+                  <div className="rounded-[1.5rem] bg-white/72 p-4 backdrop-blur">
+                    <div className="flex items-center justify-between gap-3">
+                      <div className="app-chip bg-white/85">Active companion</div>
+                      <div
+                        className={`rounded-full px-3 py-2 text-xs font-semibold uppercase tracking-wide ${petMood.chip}`}
+                      >
+                        {petMood.label}
                       </div>
                     </div>
-                    <div className="app-stat">
-                      <div className="text-xs uppercase tracking-wide app-muted">Streak</div>
-                      <div className="mt-1 text-2xl font-semibold text-[rgb(var(--app-ink))]">
-                        {state.pet.streakDays}
+
+                    <div className="relative mt-6 flex min-h-[20rem] items-center justify-center rounded-[1.8rem] bg-[radial-gradient(circle_at_top,rgba(255,255,255,0.95),rgba(255,255,255,0.7))] p-6">
+                      <div className="absolute inset-x-12 bottom-8 h-8 rounded-full bg-[rgba(31,41,55,0.09)] blur-2xl" />
+                      <div className="relative flex h-56 w-56 items-center justify-center rounded-[2.25rem] border border-white/70 bg-white text-7xl font-semibold text-[rgb(var(--app-ink))] shadow-[0_18px_35px_rgba(15,23,42,0.12)]">
+                        {petDisplay.avatarLabel}
                       </div>
                     </div>
-                    <div className="app-stat">
-                      <div className="text-xs uppercase tracking-wide app-muted">CG67coin</div>
-                      <div className="mt-1 text-2xl font-semibold text-[rgb(var(--app-ink))]">
-                        {state.coins}
-                      </div>
-                    </div>
-                  </div>
 
-                  <div className="rounded-[1.5rem] bg-[rgb(var(--app-soft))] p-4">
-                    <div className="space-y-3">
-                      <StatBar label="Health" value={state.pet.health} tint="bg-emerald-500" />
-                      <StatBar label="Happiness" value={state.pet.happiness} tint="bg-sky-500" />
-                      <StatBar label="Energy" value={state.pet.energy} tint="bg-amber-500" />
-                    </div>
-                  </div>
-
-                  <div className="flex flex-wrap gap-2">
-                    <button
-                      type="button"
-                      onClick={handleRevive}
-                      disabled={state.pet.status !== "needs-revive"}
-                      className="rounded-2xl bg-[rgb(var(--app-ink))] px-4 py-3 text-sm font-semibold text-white disabled:opacity-45"
-                    >
-                      Revive with {state.reviveCostCoins} CG67coin
-                    </button>
-                    <button
-                      type="button"
-                      onClick={handleDemoWarningState}
-                      className="rounded-2xl border border-[rgb(var(--app-line))] bg-white px-4 py-3 text-sm text-[rgb(var(--app-ink))]"
-                    >
-                      Demo warning state
-                    </button>
-                    <button
-                      type="button"
-                      onClick={handleDemoPetDown}
-                      className="rounded-2xl border border-[rgb(var(--app-line))] bg-white px-4 py-3 text-sm text-[rgb(var(--app-ink))]"
-                    >
-                      Demo pet death state
-                    </button>
-                    <button
-                      type="button"
-                      onClick={handleRestoreDemo}
-                      className="rounded-2xl border border-[rgb(var(--app-line))] bg-white px-4 py-3 text-sm text-[rgb(var(--app-ink))]"
-                    >
-                      Restore demo state
-                    </button>
-                  </div>
-                </div>
-              </div>
-            </div>
-          </div>
-
-          <div className="grid gap-6 lg:grid-cols-2">
-            <div className="app-card p-5">
-              <div className="app-chip">Identity</div>
-              <p className="mt-3 text-sm app-muted">
-                One pet per account. Players can rename the same companion, but not create a second
-                one.
-              </p>
-              <input
-                className="mt-4 w-full rounded-2xl border border-[rgb(var(--app-line))] bg-white px-4 py-3 text-sm text-[rgb(var(--app-ink))]"
-                value={state.pet.nickname}
-                onChange={(e) => handleNicknameChange(e.target.value)}
-                placeholder="Pet nickname"
-              />
-              <button
-                type="button"
-                onClick={handleNicknameSave}
-                className="mt-3 rounded-2xl bg-[rgb(var(--app-brand))] px-4 py-3 text-sm font-semibold text-white"
-              >
-                Save nickname
-              </button>
-              <div className="mt-4 text-xs app-muted">
-                Adopted on {new Date(state.pet.adoptedAt).toLocaleDateString()}
-              </div>
-            </div>
-
-            <div className="app-card p-5">
-              <div className="app-chip">Equipped accessories</div>
-              <div className="mt-4 space-y-3">
-                {equippedItems.length === 0 && (
-                  <div className="app-card-soft p-4 text-sm app-muted">
-                    Nothing equipped yet. Buy items in the shop first.
-                  </div>
-                )}
-                {equippedItems.map((item) => (
-                  <div key={item.id} className="app-card-soft p-4">
-                    <div className="text-sm font-semibold text-[rgb(var(--app-ink))]">{item.name}</div>
-                    <div className="mt-1 text-xs app-muted">{item.description}</div>
-                  </div>
-                ))}
-              </div>
-            </div>
-          </div>
-        </section>
-
-        <section className="space-y-6">
-          <div className="app-card p-5">
-            <div className="app-chip">SDG badges</div>
-            <div className="mt-4 space-y-3">
-              {earnedBadges.map((badge) => (
-                <div key={badge.id} className="rounded-[1.35rem] border border-emerald-100 bg-emerald-50 p-4">
-                  <div className="text-xs font-semibold uppercase tracking-wide text-emerald-700">
-                    {badge.sdg}
-                  </div>
-                  <div className="mt-1 text-sm font-semibold text-[rgb(var(--app-ink))]">
-                    {badge.title}
-                  </div>
-                  <div className="mt-1 text-xs app-muted">{badge.description}</div>
-                </div>
-              ))}
-            </div>
-          </div>
-
-          <div className="app-card p-5">
-            <div className="app-chip">Owned items</div>
-            <div className="mt-4 space-y-3">
-              {ownedItems.length === 0 && (
-                <div className="app-card-soft p-4 text-sm app-muted">No accessories owned yet.</div>
-              )}
-              {ownedItems.map((item) => {
-                const isEquipped = state.pet.equippedItemIds.includes(item.id);
-                return (
-                  <div key={item.id} className="app-card-soft p-4">
-                    <div className="flex items-start justify-between gap-3">
-                      <div>
-                        <div className="text-sm font-semibold text-[rgb(var(--app-ink))]">
-                          {item.name}
+                    <div className="mt-5 grid gap-3 lg:grid-cols-3">
+                      <div className="rounded-[1.35rem] bg-white/85 p-4">
+                        <div className="text-[11px] uppercase tracking-[0.18em] app-muted">
+                          Level
                         </div>
-                        <div className="mt-1 text-xs app-muted">{item.effect}</div>
+                        <div className="mt-2 text-2xl font-semibold text-[rgb(var(--app-ink))]">
+                          {state.pet.level}
+                        </div>
                       </div>
+                      <div className="rounded-[1.35rem] bg-white/85 p-4">
+                        <div className="text-[11px] uppercase tracking-[0.18em] app-muted">
+                          Streak
+                        </div>
+                        <div className="mt-2 text-2xl font-semibold text-[rgb(var(--app-ink))]">
+                          {state.pet.streakDays}
+                        </div>
+                      </div>
+                      <div className="rounded-[1.35rem] bg-white/85 p-4">
+                        <div className="text-[11px] uppercase tracking-[0.18em] app-muted">
+                          Coins
+                        </div>
+                        <div className="mt-2 text-2xl font-semibold text-[rgb(var(--app-ink))]">
+                          {state.coins}
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+
+                <div className="space-y-5">
+                  <div className="rounded-[1.8rem] border border-white/70 bg-white/80 p-6 backdrop-blur">
+                    <div className="flex flex-wrap items-start justify-between gap-4">
+                      <div>
+                        <div className="text-xs font-semibold uppercase tracking-[0.2em] text-emerald-700">
+                          Finished-product preview
+                        </div>
+                        <h2 className="mt-3 text-4xl font-semibold tracking-tight text-[rgb(var(--app-ink))]">
+                          {state.pet.nickname}
+                        </h2>
+                        <p className="mt-2 max-w-xl text-sm leading-7 app-muted">
+                          {petMood.summary} This companion view is designed to feel like the final
+                          emotional layer of the product rather than a temporary data panel.
+                        </p>
+                      </div>
+                      <div
+                        className={`rounded-full px-4 py-2 text-xs font-semibold uppercase tracking-[0.18em] ${
+                          state.pet.status === "alive"
+                            ? "bg-emerald-100 text-emerald-800"
+                            : "bg-rose-100 text-rose-700"
+                        }`}
+                      >
+                        {state.pet.status === "alive" ? "Alive and active" : "Needs revive"}
+                      </div>
+                    </div>
+
+                    <div className="mt-6 grid gap-4 xl:grid-cols-[minmax(0,1.1fr)_minmax(0,0.9fr)]">
+                      <div
+                        ref={wellbeingRef}
+                        className="rounded-[1.5rem] bg-[rgb(var(--app-soft))] p-5"
+                      >
+                        <div className="flex items-center justify-between gap-3">
+                          <div>
+                            <div className="text-xs font-semibold uppercase tracking-[0.18em] app-muted">
+                              Overall wellbeing
+                            </div>
+                            <div className="mt-2 text-3xl font-semibold text-[rgb(var(--app-ink))]">
+                              {wellbeingAverage}%
+                            </div>
+                          </div>
+                          <div
+                            className={`rounded-full px-3 py-2 text-xs font-semibold uppercase tracking-wide ${petMood.chip}`}
+                          >
+                            {petMood.label}
+                          </div>
+                        </div>
+                        <div className="mt-4 h-3 overflow-hidden rounded-full bg-white">
+                          <div
+                            className="h-3 rounded-full bg-[linear-gradient(90deg,#10b981,#84cc16,#f59e0b)]"
+                            style={{ width: `${clampPercentage(wellbeingAverage)}%` }}
+                          />
+                        </div>
+                        <div className="mt-4 text-sm app-muted">
+                          Lowest priority right now:{" "}
+                          <span className="font-semibold text-[rgb(var(--app-ink))]">
+                            {carePriority.label}
+                          </span>{" "}
+                          at{" "}
+                          <span className="font-semibold text-[rgb(var(--app-ink))]">
+                            {carePriority.value}%
+                          </span>
+                          .
+                        </div>
+                      </div>
+
+                      <div className="rounded-[1.5rem] border border-[rgb(var(--app-line))] bg-white p-5">
+                        <div className="text-xs font-semibold uppercase tracking-[0.18em] app-muted">
+                          Companion pulse
+                        </div>
+                        <div className="mt-4 grid gap-3">
+                          <div className="flex items-center justify-between rounded-[1.15rem] bg-[rgb(var(--app-soft))] px-4 py-3">
+                            <span className="text-sm app-muted">Primary concern</span>
+                            <span className="text-sm font-semibold text-[rgb(var(--app-ink))]">
+                              {carePriority.label}
+                            </span>
+                          </div>
+                          <div className="flex items-center justify-between rounded-[1.15rem] bg-[rgb(var(--app-soft))] px-4 py-3">
+                            <span className="text-sm app-muted">Adopted</span>
+                            <span className="text-sm font-semibold text-[rgb(var(--app-ink))]">
+                              {new Date(state.pet.adoptedAt).toLocaleDateString()}
+                            </span>
+                          </div>
+                          <div className="flex items-center justify-between rounded-[1.15rem] bg-[rgb(var(--app-soft))] px-4 py-3">
+                            <span className="text-sm app-muted">Accessories equipped</span>
+                            <span className="text-sm font-semibold text-[rgb(var(--app-ink))]">
+                              {equippedItems.length}
+                            </span>
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+
+                    <div className="mt-6 grid gap-3 lg:grid-cols-3">
+                      <div className="rounded-[1.4rem] border border-emerald-100 bg-emerald-50/85 p-4">
+                        <div className="text-[11px] font-semibold uppercase tracking-[0.18em] text-emerald-700">
+                          Health
+                        </div>
+                        <div className="mt-2 text-2xl font-semibold text-[rgb(var(--app-ink))]">
+                          {state.pet.health}%
+                        </div>
+                        <div className="mt-3">
+                          <StatBar
+                            label="Condition"
+                            value={state.pet.health}
+                            tint="bg-emerald-500"
+                          />
+                        </div>
+                      </div>
+                      <div className="rounded-[1.4rem] border border-sky-100 bg-sky-50/85 p-4">
+                        <div className="text-[11px] font-semibold uppercase tracking-[0.18em] text-sky-700">
+                          Happiness
+                        </div>
+                        <div className="mt-2 text-2xl font-semibold text-[rgb(var(--app-ink))]">
+                          {state.pet.happiness}%
+                        </div>
+                        <div className="mt-3">
+                          <StatBar
+                            label="Mood"
+                            value={state.pet.happiness}
+                            tint="bg-sky-500"
+                          />
+                        </div>
+                      </div>
+                      <div className="rounded-[1.4rem] border border-amber-100 bg-amber-50/85 p-4">
+                        <div className="text-[11px] font-semibold uppercase tracking-[0.18em] text-amber-700">
+                          Energy
+                        </div>
+                        <div className="mt-2 text-2xl font-semibold text-[rgb(var(--app-ink))]">
+                          {state.pet.energy}%
+                        </div>
+                        <div className="mt-3">
+                          <StatBar
+                            label="Charge"
+                            value={state.pet.energy}
+                            tint="bg-amber-500"
+                          />
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+
+                  <div className="grid gap-4 2xl:grid-cols-[minmax(0,1.05fr)_minmax(0,0.95fr)]">
+                    <div className="rounded-[1.8rem] border border-[rgb(var(--app-line))] bg-white p-5 shadow-sm">
+                      <div className="flex items-center justify-between gap-3">
+                        <div>
+                          <div className="app-chip">Care controls</div>
+                          <div className="mt-3 text-2xl font-semibold text-[rgb(var(--app-ink))]">
+                            Keep the companion stable
+                          </div>
+                        </div>
+                        <div
+                          className={`rounded-full px-3 py-2 text-xs font-semibold uppercase tracking-wide ${petMood.chip}`}
+                        >
+                          {petMood.label}
+                        </div>
+                      </div>
+
+                      <div className="mt-5 grid gap-3 sm:grid-cols-2">
+                        <button
+                          type="button"
+                          onClick={handleRevive}
+                          disabled={state.pet.status !== "needs-revive"}
+                          className="rounded-[1.35rem] bg-[rgb(var(--app-ink))] px-4 py-4 text-sm font-semibold text-white disabled:opacity-45"
+                        >
+                          Revive with {state.reviveCostCoins} CG67coin
+                        </button>
+                        <button
+                          type="button"
+                          onClick={handleNicknameSave}
+                          className="rounded-[1.35rem] bg-[rgb(var(--app-brand))] px-4 py-4 text-sm font-semibold text-white"
+                        >
+                          Save companion identity
+                        </button>
+                        <button
+                          type="button"
+                          onClick={handleDemoWarningState}
+                          className="rounded-[1.35rem] border border-[rgb(var(--app-line))] bg-white px-4 py-4 text-sm font-semibold text-[rgb(var(--app-ink))]"
+                        >
+                          Trigger warning state
+                        </button>
+                        <button
+                          type="button"
+                          onClick={handleDemoPetDown}
+                          className="rounded-[1.35rem] border border-[rgb(var(--app-line))] bg-white px-4 py-4 text-sm font-semibold text-[rgb(var(--app-ink))]"
+                        >
+                          Trigger revive state
+                        </button>
+                      </div>
+
                       <button
                         type="button"
-                        onClick={() => handleEquip(item.id)}
-                        className="rounded-xl border border-[rgb(var(--app-line))] bg-white px-3 py-2 text-xs font-semibold text-[rgb(var(--app-ink))]"
+                        onClick={handleRestoreDemo}
+                        className="mt-3 w-full rounded-[1.35rem] border border-dashed border-[rgb(var(--app-line))] bg-[rgb(var(--app-soft))] px-4 py-3 text-sm font-semibold text-[rgb(var(--app-ink))]"
                       >
-                        {isEquipped ? "Unequip" : "Equip"}
+                        Restore demo baseline
                       </button>
                     </div>
-                  </div>
-                );
-              })}
-            </div>
-          </div>
 
-          {message && (
-            <div className="rounded-[1.75rem] border border-emerald-100 bg-emerald-50 p-4 text-sm text-emerald-800">
-              {message}
+                    <div className="rounded-[1.8rem] border border-[rgb(var(--app-line))] bg-[linear-gradient(180deg,rgba(255,255,255,0.98),rgba(247,252,249,0.98))] p-5 shadow-sm">
+                      <div className="app-chip">Live feed</div>
+                      <div className="mt-3 text-2xl font-semibold text-[rgb(var(--app-ink))]">
+                        Companion timeline
+                      </div>
+                      <div className="mt-4 space-y-3">
+                        {companionFeed.map((entry) => (
+                          <div
+                            key={entry.label}
+                            className="rounded-[1.25rem] border border-[rgb(var(--app-line))] bg-white px-4 py-4"
+                          >
+                            <div className="text-sm font-semibold text-[rgb(var(--app-ink))]">
+                              {entry.label}
+                            </div>
+                            <div className="mt-1 text-sm app-muted">{entry.detail}</div>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </div>
             </div>
-          )}
-        </section>
+
+            <div className="grid gap-6 xl:grid-cols-[minmax(0,0.95fr)_minmax(0,1.05fr)]">
+              <div className="rounded-[1.85rem] border border-[rgb(var(--app-line))] bg-white p-6 shadow-sm">
+                <div className="app-chip">Identity studio</div>
+                <div className="mt-3 text-2xl font-semibold text-[rgb(var(--app-ink))]">
+                  Shape your companion profile
+                </div>
+                <p className="mt-3 text-sm leading-7 app-muted">
+                  One pet per account for now, but this view should still feel like a proper home
+                  for that companion.
+                </p>
+                <input
+                  className="mt-5 w-full rounded-[1.35rem] border border-[rgb(var(--app-line))] bg-white px-4 py-3 text-sm text-[rgb(var(--app-ink))]"
+                  value={state.pet.nickname}
+                  onChange={(e) => handleNicknameChange(e.target.value)}
+                  placeholder="Pet nickname"
+                />
+                <div className="mt-4 rounded-[1.35rem] bg-[rgb(var(--app-soft))] p-4">
+                  <div className="text-xs font-semibold uppercase tracking-[0.18em] app-muted">
+                    Profile notes
+                  </div>
+                  <div className="mt-3 grid gap-3 text-sm app-muted">
+                    <div>Name shown across dashboard, pets, and social surfaces.</div>
+                    <div>
+                      Current display style uses a generated avatar label until DB art arrives.
+                    </div>
+                    <div>Adopted on {new Date(state.pet.adoptedAt).toLocaleDateString()}.</div>
+                  </div>
+                </div>
+              </div>
+
+              <div className="rounded-[1.85rem] border border-[rgb(var(--app-line))] bg-[linear-gradient(180deg,rgba(255,255,255,0.98),rgba(250,250,249,0.96))] p-6 shadow-sm">
+                <div className="flex items-center justify-between gap-3">
+                  <div>
+                    <div className="app-chip">Equipped loadout</div>
+                    <div className="mt-3 text-2xl font-semibold text-[rgb(var(--app-ink))]">
+                      Active accessories
+                    </div>
+                  </div>
+                  <div className="rounded-full bg-[rgb(var(--app-soft))] px-3 py-2 text-xs font-semibold uppercase tracking-wide text-[rgb(var(--app-ink))]">
+                    {equippedItems.length} active
+                  </div>
+                </div>
+
+                <div className="mt-5 grid gap-3 sm:grid-cols-2">
+                  {equippedItems.length === 0 ? (
+                    <div className="sm:col-span-2 rounded-[1.35rem] border border-dashed border-[rgb(var(--app-line))] bg-[rgb(var(--app-soft))] p-5 text-sm app-muted">
+                      Nothing equipped yet. This area is ready to feel like a real loadout preview
+                      once more cosmetic assets arrive.
+                    </div>
+                  ) : (
+                    equippedItems.map((item) => (
+                      <div
+                        key={item.id}
+                        className="rounded-[1.35rem] border border-[rgb(var(--app-line))] bg-white p-4"
+                      >
+                        <div className="text-[11px] font-semibold uppercase tracking-[0.18em] app-muted">
+                          {item.slot}
+                        </div>
+                        <div className="mt-2 text-base font-semibold text-[rgb(var(--app-ink))]">
+                          {item.name}
+                        </div>
+                        <div className="mt-2 text-sm app-muted">{item.description}</div>
+                      </div>
+                    ))
+                  )}
+                </div>
+              </div>
+            </div>
+          </section>
+
+          <section className="space-y-6">
+            <div className="rounded-[1.85rem] border border-[rgb(var(--app-line))] bg-white p-5 shadow-sm">
+              <div className="flex items-center justify-between gap-3">
+                <div>
+                  <div className="app-chip">Inventory</div>
+                  <div className="mt-3 text-2xl font-semibold text-[rgb(var(--app-ink))]">
+                    Owned items
+                  </div>
+                </div>
+                <div className="rounded-full bg-[rgb(var(--app-soft))] px-3 py-2 text-xs font-semibold uppercase tracking-wide text-[rgb(var(--app-ink))]">
+                  {ownedItems.length} owned
+                </div>
+              </div>
+
+              <div className="mt-5 space-y-3">
+                {ownedItems.length === 0 && (
+                  <div className="rounded-[1.35rem] border border-dashed border-[rgb(var(--app-line))] bg-[rgb(var(--app-soft))] p-4 text-sm app-muted">
+                    No accessories owned yet. The layout is ready for a richer inventory once the
+                    rest of the system catches up.
+                  </div>
+                )}
+                {ownedItems.map((item) => {
+                  const isEquipped = state.pet.equippedItemIds.includes(item.id);
+                  return (
+                    <div
+                      key={item.id}
+                      className="rounded-[1.35rem] border border-[rgb(var(--app-line))] bg-[rgb(var(--app-soft))] p-4"
+                    >
+                      <div className="flex items-start justify-between gap-3">
+                        <div>
+                          <div className="text-[11px] font-semibold uppercase tracking-[0.18em] app-muted">
+                            {item.slot}
+                          </div>
+                          <div className="mt-2 text-base font-semibold text-[rgb(var(--app-ink))]">
+                            {item.name}
+                          </div>
+                          <div className="mt-1 text-sm app-muted">{item.effect}</div>
+                        </div>
+                        <button
+                          type="button"
+                          onClick={() => handleEquip(item.id)}
+                          className="rounded-xl border border-[rgb(var(--app-line))] bg-white px-3 py-2 text-xs font-semibold text-[rgb(var(--app-ink))]"
+                        >
+                          {isEquipped ? "Unequip" : "Equip"}
+                        </button>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+
+            <div className="rounded-[1.85rem] border border-[rgb(var(--app-line))] bg-white p-5 shadow-sm">
+              <div className="flex items-center justify-between gap-3">
+                <div>
+                  <div className="app-chip">SDG progress</div>
+                  <div className="mt-3 text-2xl font-semibold text-[rgb(var(--app-ink))]">
+                    Earned badges
+                  </div>
+                </div>
+                <div className="rounded-full bg-emerald-50 px-3 py-2 text-xs font-semibold uppercase tracking-wide text-emerald-700">
+                  {earnedBadges.length} unlocked
+                </div>
+              </div>
+
+              <div className="mt-5 space-y-3">
+                {earnedBadges.length === 0 ? (
+                  <div className="rounded-[1.35rem] border border-dashed border-emerald-200 bg-emerald-50/70 p-4 text-sm text-emerald-800">
+                    No badges yet. This slot is ready for future celebrations and unlock
+                    animations.
+                  </div>
+                ) : (
+                  earnedBadges.map((badge) => (
+                    <div
+                      key={badge.id}
+                      className="rounded-[1.35rem] border border-emerald-100 bg-[linear-gradient(135deg,rgba(236,253,245,0.98),rgba(255,255,255,0.98))] p-4"
+                    >
+                      <div className="text-xs font-semibold uppercase tracking-[0.18em] text-emerald-700">
+                        {badge.sdg}
+                      </div>
+                      <div className="mt-2 text-base font-semibold text-[rgb(var(--app-ink))]">
+                        {badge.title}
+                      </div>
+                      <div className="mt-2 text-sm app-muted">{badge.description}</div>
+                    </div>
+                  ))
+                )}
+              </div>
+            </div>
+
+            {message && (
+              <div className="rounded-[1.85rem] border border-emerald-100 bg-[linear-gradient(135deg,rgba(236,253,245,0.98),rgba(240,253,244,0.92))] p-5 text-sm text-emerald-800 shadow-sm">
+                {message}
+              </div>
+            )}
+          </section>
         </div>
       </PageShell>
     </>
