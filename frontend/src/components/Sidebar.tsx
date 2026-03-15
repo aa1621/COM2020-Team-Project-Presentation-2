@@ -1,6 +1,6 @@
 import { NavLink } from "react-router-dom";
 import { clearDemoUser, getDemoUser } from "../auth/demoAuth";
-import { ensureGamificationState, getPetTemplate } from "../gamification/store";
+import { ensureGamificationState, getPetDisplay } from "../gamification/store";
 
 type NavItem = {
   label: string;
@@ -21,8 +21,8 @@ const baseNavItems: NavItem[] = [
 export default function Sidebar() {
   const user = getDemoUser();
   const gamificationState = user?.user_id ? ensureGamificationState(user.user_id) : null;
-  const petTemplate = gamificationState
-    ? getPetTemplate(gamificationState.pet.templateId)
+  const petDisplay = gamificationState
+    ? getPetDisplay(gamificationState.pet.nickname)
     : null;
   const canModerate = user?.role === "moderator" || user?.role === "maintainer";
   const navItems: NavItem[] = canModerate
@@ -72,15 +72,13 @@ export default function Sidebar() {
         </nav>
 
         <div className="mt-auto space-y-4 pt-6">
-          {gamificationState && petTemplate ? (
+          {gamificationState && petDisplay ? (
             <div className="overflow-hidden rounded-[1.5rem] border border-[rgb(var(--app-line))] bg-white">
-              <div className={`bg-gradient-to-r ${petTemplate.accentClass} p-4`}>
+              <div className={`bg-gradient-to-r ${petDisplay.accentClass} p-4`}>
                 <div className="flex items-center gap-3">
-                  <img
-                    src={petTemplate.image}
-                    alt={petTemplate.name}
-                    className="h-16 w-16 rounded-[1.1rem] bg-white/85 object-cover"
-                  />
+                  <div className="flex h-16 w-16 items-center justify-center rounded-[1.1rem] bg-white/85 text-lg font-semibold text-[rgb(var(--app-ink))]">
+                    {petDisplay.avatarLabel}
+                  </div>
                   <div className="min-w-0">
                     <div className="text-[11px] font-semibold uppercase tracking-[0.16em] text-gray-700">
                       Active pet
@@ -88,7 +86,7 @@ export default function Sidebar() {
                     <div className="truncate text-base font-semibold text-[rgb(var(--app-ink))]">
                       {gamificationState.pet.nickname}
                     </div>
-                    <div className="text-xs text-gray-700">{petTemplate.tagline}</div>
+                    <div className="text-xs text-gray-700">{petDisplay.tagline}</div>
                   </div>
                 </div>
               </div>

@@ -2,10 +2,10 @@ import { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
 import PageShell from "../components/PageShell";
 import { getDemoUser } from "../auth/demoAuth";
-import { SHOP_ITEMS } from "../gamification/catalog";
 import {
   ensureGamificationState,
   purchaseShopItem,
+  SHOP_ITEMS,
   type GamificationState,
 } from "../gamification/store";
 
@@ -104,7 +104,7 @@ export default function ShopPage() {
           <div className="app-card p-5">
             <div className="app-chip">Loop overview</div>
             <div className="mt-3 space-y-2 text-sm app-muted">
-              <div>1. Choose one pet during signup.</div>
+              <div>1. Your pet profile is created from stored account data.</div>
               <div>2. Earn coins from sustainable actions and challenge progress.</div>
               <div>3. Spend them on upgrades, cosmetics, and recovery support.</div>
               <div>4. Keep your companion active through consistent engagement.</div>

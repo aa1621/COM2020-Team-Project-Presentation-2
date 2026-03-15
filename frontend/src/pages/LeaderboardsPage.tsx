@@ -3,7 +3,7 @@ import PageShell from "../components/PageShell";
 import { getUserLeaderboards } from "../api/leaderboards";
 import { getDemoUser } from "../auth/demoAuth";
 import type { UserLeaderboardEntry } from "../api/types";
-import { getGamificationState, getPetTemplate } from "../gamification/store";
+import { getGamificationState, getPetDisplay } from "../gamification/store";
 
 type Scope = "all" | "group";
 
@@ -13,10 +13,10 @@ export default function LeaderboardsPage() {
   const [error, setError] = useState<string | null>(null);
   const [scope, setScope] = useState<Scope>("all");
   const user = useMemo(() => getDemoUser(), []);
-  const myPetTemplate = useMemo(() => {
+  const myPetDisplay = useMemo(() => {
     if (!user?.user_id) return null;
     const state = getGamificationState(user.user_id);
-    return state ? getPetTemplate(state.pet.templateId) : null;
+    return state ? getPetDisplay(state.pet.nickname) : null;
   }, [user]);
 
   useEffect(() => {
@@ -92,8 +92,8 @@ export default function LeaderboardsPage() {
             {entries.map((entry, index) => {
               const isMe = user?.user_id === entry.user_id;
               const displayName = entry.display_name || entry.username;
-              const petImage = isMe && myPetTemplate ? myPetTemplate.image : null;
-              const petLabel = isMe && myPetTemplate ? myPetTemplate.name : "Pet coming soon";
+              const petLabel = isMe && myPetDisplay ? myPetDisplay.title : "Pet coming soon";
+              const petAvatar = isMe && myPetDisplay ? myPetDisplay.avatarLabel : null;
 
               return (
                 <div
@@ -110,12 +110,10 @@ export default function LeaderboardsPage() {
                         {index + 1}
                       </div>
                       <div className="flex h-16 w-16 shrink-0 items-center justify-center overflow-hidden rounded-[1.25rem] bg-[rgb(var(--app-soft))]">
-                        {petImage ? (
-                          <img
-                            src={petImage}
-                            alt={petLabel}
-                            className="h-full w-full object-cover"
-                          />
+                        {petAvatar ? (
+                          <span className="text-sm font-semibold uppercase tracking-wide text-[rgb(var(--app-ink))]">
+                            {petAvatar}
+                          </span>
                         ) : (
                           <span className="text-[10px] font-semibold uppercase tracking-wide app-muted">
                             Pet

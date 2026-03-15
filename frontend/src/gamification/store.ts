@@ -1,6 +1,27 @@
-import { PET_TEMPLATES, SDG_BADGES, SHOP_ITEMS } from "./catalog";
-
 export type PetStatus = "alive" | "needs-revive";
+
+export type ShopItem = {
+  id: string;
+  name: string;
+  price: number;
+  slot: "head" | "face" | "background" | "boost";
+  description: string;
+  effect: string;
+};
+
+export type SdgBadge = {
+  id: string;
+  title: string;
+  sdg: string;
+  description: string;
+};
+
+export type PetDisplay = {
+  title: string;
+  tagline: string;
+  accentClass: string;
+  avatarLabel: string;
+};
 
 export type ActionRewardResult = {
   coinsEarned: number;
@@ -32,21 +53,82 @@ export type GamificationState = {
 const STORAGE_PREFIX = "gamification_profile";
 const DEFAULT_REVIVE_COST_COINS = 500;
 const DEFAULT_REVIVE_COST_CASH_LABEL = "PS5 in CG67coin";
+const DEFAULT_PET_TITLE = "Campus Companion";
+
+export const SHOP_ITEMS: ShopItem[] = [
+  {
+    id: "moss-cap",
+    name: "Moss Cap",
+    price: 45,
+    slot: "head",
+    description: "A soft green cap for your campus companion.",
+    effect: "Cosmetic upgrade",
+  },
+  {
+    id: "eco-shades",
+    name: "Eco Shades",
+    price: 60,
+    slot: "face",
+    description: "Sunglasses for pets with leaderboard energy.",
+    effect: "Cosmetic upgrade",
+  },
+  {
+    id: "wild-meadow",
+    name: "Wild Meadow",
+    price: 120,
+    slot: "background",
+    description: "Unlock a brighter habitat background for your pet page.",
+    effect: "Cosmetic upgrade",
+  },
+  {
+    id: "revive-token",
+    name: "Revive Token",
+    price: 500,
+    slot: "boost",
+    description: "Emergency backup if your pet reaches zero energy.",
+    effect: "Revives one pet",
+  },
+];
+
+export const SDG_BADGES: SdgBadge[] = [
+  {
+    id: "sdg-7-saver",
+    title: "Energy Saver",
+    sdg: "SDG 7",
+    description: "Awarded for low-energy and efficiency-focused actions.",
+  },
+  {
+    id: "sdg-11-traveller",
+    title: "Low-Carbon Traveller",
+    sdg: "SDG 11",
+    description: "Celebrate greener campus travel and shared mobility habits.",
+  },
+  {
+    id: "sdg-12-swapper",
+    title: "Reuse Champion",
+    sdg: "SDG 12",
+    description: "Highlights waste reduction, swaps, and reusable choices.",
+  },
+  {
+    id: "sdg-13-guardian",
+    title: "Climate Guardian",
+    sdg: "SDG 13",
+    description: "A high-level badge for sustained climate-positive behaviour.",
+  },
+];
 
 function storageKey(userId: string) {
   return `${STORAGE_PREFIX}:${userId}`;
 }
 
 export function createStarterGamificationState(templateId: string): GamificationState {
-  const template = PET_TEMPLATES.find((pet) => pet.id === templateId) ?? PET_TEMPLATES[0];
-
   return {
     coins: 180,
     reviveCostCoins: DEFAULT_REVIVE_COST_COINS,
     reviveCostCashLabel: DEFAULT_REVIVE_COST_CASH_LABEL,
     pet: {
-      templateId: template.id,
-      nickname: template.name,
+      templateId: templateId || "default",
+      nickname: DEFAULT_PET_TITLE,
       status: "alive",
       health: 84,
       happiness: 76,
@@ -76,7 +158,7 @@ export function saveGamificationState(userId: string, state: GamificationState) 
   localStorage.setItem(storageKey(userId), JSON.stringify(state));
 }
 
-export function ensureGamificationState(userId: string, templateId = PET_TEMPLATES[0].id) {
+export function ensureGamificationState(userId: string, templateId = "default") {
   const existing = getGamificationState(userId);
   if (existing) return existing;
 
@@ -85,8 +167,14 @@ export function ensureGamificationState(userId: string, templateId = PET_TEMPLAT
   return created;
 }
 
-export function getPetTemplate(templateId: string) {
-  return PET_TEMPLATES.find((pet) => pet.id === templateId) ?? PET_TEMPLATES[0];
+export function getPetDisplay(nickname: string): PetDisplay {
+  const trimmed = nickname.trim();
+  return {
+    title: trimmed || DEFAULT_PET_TITLE,
+    tagline: "Stored from your pet profile and ready for DB-backed sync.",
+    accentClass: "from-emerald-200 via-lime-100 to-amber-100",
+    avatarLabel: (trimmed || DEFAULT_PET_TITLE).slice(0, 2).toUpperCase(),
+  };
 }
 
 export function getOwnedShopItems(state: GamificationState) {

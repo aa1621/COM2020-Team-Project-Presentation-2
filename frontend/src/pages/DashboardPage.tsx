@@ -3,7 +3,7 @@ import { getDemoUser } from "../auth/demoAuth";
 import { apiFetch } from "../api/client";
 import { getActionLogs } from "../api/actionLogs";
 import type { ActionType, GetActionTypesResponse } from "../api/types";
-import { ensureGamificationState, getPetTemplate } from "../gamification/store";
+import { ensureGamificationState, getPetDisplay } from "../gamification/store";
 
 type DateRangeOption = 7 | 30;
 
@@ -33,7 +33,7 @@ export default function DashboardPage() {
   const user = getDemoUser();
   const displayName = user?.display_name || user?.username || "there";
   const petState = user?.user_id ? ensureGamificationState(user.user_id) : null;
-  const petTemplate = petState ? getPetTemplate(petState.pet.templateId) : null;
+  const petDisplay = petState ? getPetDisplay(petState.pet.nickname) : null;
 
   const [actionTypes, setActionTypes] = useState<ActionType[]>([]);
   const [logs, setLogs] = useState<
@@ -174,21 +174,19 @@ export default function DashboardPage() {
             </div>
           </div>
 
-          {petState && petTemplate ? (
+          {petState && petDisplay ? (
             <div className="grid gap-3 p-6 sm:grid-cols-3">
               <div className="sm:col-span-3">
                 <div className="app-card-soft flex items-center gap-4 p-4">
-                  <img
-                    src={petTemplate.image}
-                    alt={petTemplate.name}
-                    className="h-20 w-20 rounded-[1.2rem] bg-white object-cover"
-                  />
+                  <div className="flex h-20 w-20 items-center justify-center rounded-[1.2rem] bg-white text-2xl font-semibold text-[rgb(var(--app-ink))]">
+                    {petDisplay.avatarLabel}
+                  </div>
                   <div className="min-w-0">
                     <div className="text-xs uppercase tracking-[0.16em] app-muted">Pet companion</div>
                     <div className="truncate text-2xl font-semibold text-[rgb(var(--app-ink))]">
                       {petState.pet.nickname}
                     </div>
-                    <div className="text-sm app-muted">{petTemplate.tagline}</div>
+                    <div className="text-sm app-muted">{petDisplay.tagline}</div>
                   </div>
                 </div>
               </div>
@@ -234,7 +232,7 @@ export default function DashboardPage() {
               <div className="app-card-soft p-5">
                 <div className="text-sm font-semibold text-[rgb(var(--app-ink))]">Pet sync pending</div>
                 <div className="mt-2 text-sm app-muted">
-                  Choose a pet to turn your dashboard into a full companion-led progress view.
+                  Your pet profile will appear here once companion data is available.
                 </div>
               </div>
             </div>

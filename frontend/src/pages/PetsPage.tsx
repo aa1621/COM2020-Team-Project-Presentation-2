@@ -1,14 +1,14 @@
 import { useEffect, useState } from "react";
 import PageShell from "../components/PageShell";
 import { getDemoUser } from "../auth/demoAuth";
-import { SHOP_ITEMS } from "../gamification/catalog";
 import {
   ensureGamificationState,
   getEarnedBadges,
   getOwnedShopItems,
-  getPetTemplate,
+  getPetDisplay,
   revivePetWithCoins,
   saveGamificationState,
+  SHOP_ITEMS,
   setPetStatus,
   toggleEquipItem,
   type GamificationState,
@@ -66,7 +66,7 @@ export default function PetsPage() {
 
   const currentUser = user;
   const currentState = state;
-  const petTemplate = getPetTemplate(currentState.pet.templateId);
+  const petDisplay = getPetDisplay(currentState.pet.nickname);
   const earnedBadges = getEarnedBadges(currentState);
   const ownedItems = getOwnedShopItems(currentState);
   const equippedItems = SHOP_ITEMS.filter((item) =>
@@ -138,14 +138,12 @@ export default function PetsPage() {
       <div className="grid gap-6 xl:grid-cols-[1.12fr_0.88fr]">
         <section className="space-y-6">
           <div className="app-card overflow-hidden">
-            <div className={`bg-gradient-to-br ${petTemplate.accentClass} p-6`}>
+            <div className={`bg-gradient-to-br ${petDisplay.accentClass} p-6`}>
               <div className="grid gap-5 lg:grid-cols-[0.88fr_1.12fr]">
-                <div className="rounded-[1.6rem] bg-white/62 p-4 backdrop-blur">
-                  <img
-                    src={petTemplate.image}
-                    alt={petTemplate.name}
-                    className="mx-auto h-80 w-full rounded-[1.35rem] object-contain"
-                  />
+                <div className="flex min-h-80 items-center justify-center rounded-[1.6rem] bg-white/62 p-4 backdrop-blur">
+                  <div className="flex h-48 w-48 items-center justify-center rounded-[2rem] bg-white text-6xl font-semibold text-[rgb(var(--app-ink))] shadow-sm">
+                    {petDisplay.avatarLabel}
+                  </div>
                 </div>
 
                 <div className="space-y-4 rounded-[1.6rem] bg-white/82 p-5 backdrop-blur">
@@ -155,7 +153,7 @@ export default function PetsPage() {
                       <h2 className="mt-3 text-3xl font-semibold tracking-tight text-[rgb(var(--app-ink))]">
                         {state.pet.nickname}
                       </h2>
-                      <p className="mt-1 text-sm app-muted">{petTemplate.tagline}</p>
+                      <p className="mt-1 text-sm app-muted">{petDisplay.tagline}</p>
                     </div>
                     <div
                       className={`rounded-full px-4 py-2 text-xs font-semibold uppercase tracking-wide ${
