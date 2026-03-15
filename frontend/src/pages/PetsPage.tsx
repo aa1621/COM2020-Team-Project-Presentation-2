@@ -37,6 +37,8 @@ const PET_ONBOARDING_STEPS = [
   },
 ] as const;
 
+type PetEventModalKind = "warning" | "critical" | "revived";
+
 function StatBar({
   label,
   value,
@@ -152,12 +154,119 @@ function OnboardingModal({
   );
 }
 
+function PetEventModal({
+  kind,
+  title,
+  body,
+  primaryLabel,
+  secondaryLabel,
+  onPrimary,
+  onSecondary,
+}: {
+  kind: PetEventModalKind;
+  title: string;
+  body: string;
+  primaryLabel: string;
+  secondaryLabel?: string;
+  onPrimary: () => void;
+  onSecondary?: () => void;
+}) {
+  const theme =
+    kind === "revived"
+      ? {
+          shell: "bg-[rgba(16,185,129,0.18)]",
+          card: "bg-[linear-gradient(145deg,rgba(236,253,245,0.98),rgba(236,252,203,0.96))]",
+          badge: "bg-emerald-100 text-emerald-800",
+          orb: "bg-emerald-500",
+          button: "bg-emerald-600",
+        }
+      : kind === "critical"
+        ? {
+            shell: "bg-[rgba(127,29,29,0.28)]",
+            card: "bg-[linear-gradient(145deg,rgba(255,241,242,0.98),rgba(255,247,237,0.96))]",
+            badge: "bg-rose-100 text-rose-800",
+            orb: "bg-rose-500",
+            button: "bg-rose-600",
+          }
+        : {
+            shell: "bg-[rgba(120,113,108,0.24)]",
+            card: "bg-[linear-gradient(145deg,rgba(255,251,235,0.98),rgba(254,242,242,0.96))]",
+            badge: "bg-amber-100 text-amber-800",
+            orb: "bg-amber-500",
+            button: "bg-amber-500",
+          };
+
+  return (
+    <div className={`fixed inset-0 z-50 flex items-center justify-center p-4 backdrop-blur-sm ${theme.shell}`}>
+      <div className={`w-full max-w-xl rounded-[2rem] border border-white/70 p-6 shadow-[0_28px_90px_rgba(15,23,42,0.22)] ${theme.card}`}>
+        <div className="flex items-start justify-between gap-4">
+          <div className={`rounded-full px-3 py-2 text-xs font-semibold uppercase tracking-[0.18em] ${theme.badge}`}>
+            {kind === "revived" ? "Recovered" : kind === "critical" ? "Needs revive" : "Warning"}
+          </div>
+          {onSecondary ? (
+            <button
+              type="button"
+              onClick={onSecondary}
+              className="rounded-full border border-[rgb(var(--app-line))] bg-white px-3 py-2 text-xs font-semibold uppercase tracking-wide text-[rgb(var(--app-ink))]"
+            >
+              Close
+            </button>
+          ) : null}
+        </div>
+
+        <div className="mt-5 flex items-center gap-4">
+          <div className="relative flex h-20 w-20 items-center justify-center rounded-[1.6rem] bg-white shadow-sm">
+            <div className={`absolute h-10 w-10 rounded-full opacity-20 blur-xl ${theme.orb}`} />
+            <div className={`h-6 w-6 rounded-full ${theme.orb}`} />
+          </div>
+          <div>
+            <h2 className="text-2xl font-semibold tracking-tight text-[rgb(var(--app-ink))]">
+              {title}
+            </h2>
+            <p className="mt-2 max-w-lg text-sm leading-7 app-muted">{body}</p>
+          </div>
+        </div>
+
+        <div className="mt-6 rounded-[1.4rem] bg-white/75 p-4 text-sm app-muted">
+          {kind === "revived"
+            ? "Your companion has stabilized and can keep earning progress with your next climate-positive actions."
+            : kind === "critical"
+              ? "Use coins or a revive item to bring your companion back before continuing."
+              : "Logging actions and staying active will help your companion recover before it reaches a critical state."}
+        </div>
+
+        <div className="mt-6 flex flex-wrap justify-end gap-3">
+          {onSecondary ? (
+            <button
+              type="button"
+              onClick={onSecondary}
+              className="rounded-2xl border border-[rgb(var(--app-line))] bg-white px-4 py-3 text-sm font-semibold text-[rgb(var(--app-ink))]"
+            >
+              {secondaryLabel}
+            </button>
+          ) : null}
+          <button
+            type="button"
+            onClick={onPrimary}
+            className={`rounded-2xl px-5 py-3 text-sm font-semibold text-white ${theme.button}`}
+          >
+            {primaryLabel}
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 export default function PetsPage() {
   const user = getDemoUser();
   const [state, setState] = useState<GamificationState | null>(null);
   const [message, setMessage] = useState<string | null>(null);
   const [showOnboarding, setShowOnboarding] = useState(false);
   const [onboardingStep, setOnboardingStep] = useState(0);
+  const [eventModal, setEventModal] = useState<PetEventModalKind | null>(null);
+  const [warningDismissed, setWarningDismissed] = useState(false);
+  const [criticalDismissed, setCriticalDismissed] = useState(false);
 
   useEffect(() => {
     if (!user?.user_id) return;
@@ -172,6 +281,31 @@ export default function PetsPage() {
       setOnboardingStep(0);
     }
   }, [user?.user_id]);
+
+  useEffect(() => {
+    if (!state) return;
+
+    if (state.pet.status === "needs-revive") {
+      if (!criticalDismissed) {
+        setEventModal("critical");
+      }
+      setWarningDismissed(false);
+      return;
+    }
+
+    const isWarningRange = state.pet.health <= 35 || state.pet.energy <= 35;
+    if (isWarningRange && !warningDismissed && eventModal !== "revived") {
+      setEventModal("warning");
+      return;
+    }
+
+    if (!isWarningRange && eventModal === "warning") {
+      setEventModal(null);
+    }
+    if (criticalDismissed) {
+      setCriticalDismissed(false);
+    }
+  }, [state, warningDismissed, criticalDismissed, eventModal]);
 
   if (!user) {
     return (
@@ -233,6 +367,9 @@ export default function PetsPage() {
       setMessage(result.error);
       return;
     }
+    setWarningDismissed(false);
+    setCriticalDismissed(false);
+    setEventModal("revived");
     refresh(result.state, "Your pet is back and ready for more climate missions.");
   }
 
@@ -243,6 +380,7 @@ export default function PetsPage() {
 
   function handleDemoPetDown() {
     const nextState = setPetStatus(currentUser.user_id, "needs-revive");
+    setCriticalDismissed(false);
     refresh(nextState, "Demo state: your pet now needs reviving.");
   }
 
@@ -258,10 +396,29 @@ export default function PetsPage() {
         },
       };
       saveGamificationState(currentUser.user_id, restoredState);
+      setEventModal(null);
+      setWarningDismissed(false);
+      setCriticalDismissed(false);
       refresh(restoredState, "Demo state restored.");
       return;
     }
     refresh(nextState);
+  }
+
+  function handleDemoWarningState() {
+    const nextState = {
+      ...currentState,
+      pet: {
+        ...currentState.pet,
+        status: "alive" as const,
+        health: 28,
+        energy: 24,
+        happiness: 41,
+      },
+    };
+    saveGamificationState(currentUser.user_id, nextState);
+    setWarningDismissed(false);
+    refresh(nextState, "Demo state: your pet is now in a warning condition.");
   }
 
   return (
@@ -274,6 +431,43 @@ export default function PetsPage() {
             setOnboardingStep((step) => Math.min(PET_ONBOARDING_STEPS.length - 1, step + 1))
           }
           onClose={closeOnboarding}
+        />
+      ) : null}
+      {eventModal === "warning" ? (
+        <PetEventModal
+          kind="warning"
+          title="Your companion is running low"
+          body="Energy and health have dropped into the danger zone. A few more good actions can steady things before your pet needs reviving."
+          primaryLabel="Check pet stats"
+          secondaryLabel="Dismiss"
+          onPrimary={() => setEventModal(null)}
+          onSecondary={() => {
+            setWarningDismissed(true);
+            setEventModal(null);
+          }}
+        />
+      ) : null}
+      {eventModal === "critical" ? (
+        <PetEventModal
+          kind="critical"
+          title="Your pet needs reviving"
+          body="Your companion has run out of energy and cannot keep progressing in its current state. Revive it to restore momentum and get back on track."
+          primaryLabel={`Revive with ${state?.reviveCostCoins ?? 500} CG67coin`}
+          secondaryLabel="Stay on page"
+          onPrimary={handleRevive}
+          onSecondary={() => {
+            setCriticalDismissed(true);
+            setEventModal(null);
+          }}
+        />
+      ) : null}
+      {eventModal === "revived" ? (
+        <PetEventModal
+          kind="revived"
+          title="Your companion is back"
+          body="Revival was successful. Your pet has recovered enough energy and health to jump back into your sustainability streak."
+          primaryLabel="Celebrate and continue"
+          onPrimary={() => setEventModal(null)}
         />
       ) : null}
 
@@ -374,6 +568,13 @@ export default function PetsPage() {
                       className="rounded-2xl bg-[rgb(var(--app-ink))] px-4 py-3 text-sm font-semibold text-white disabled:opacity-45"
                     >
                       Revive with {state.reviveCostCoins} CG67coin
+                    </button>
+                    <button
+                      type="button"
+                      onClick={handleDemoWarningState}
+                      className="rounded-2xl border border-[rgb(var(--app-line))] bg-white px-4 py-3 text-sm text-[rgb(var(--app-ink))]"
+                    >
+                      Demo warning state
                     </button>
                     <button
                       type="button"
