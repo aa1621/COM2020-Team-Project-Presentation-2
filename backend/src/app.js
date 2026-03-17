@@ -19,6 +19,7 @@ import leaderboardsRoutes from './routes/leaderboards.route.js';
 import petsRouter from "./routes/pets.route.js";
 import shopRouter from "./routes/shop.route.js";
 import coinsRouter from "./routes/coins.route.js";
+import inventoryRouter from "./routes/inventory.route.js";
 
 
 
@@ -41,6 +42,7 @@ app.use('/', moderationRoutes);
 app.use("/pets", petsRouter);
 app.use("/shop", shopRouter);
 app.use("/coins", coinsRouter);
+app.use("/inventory", inventoryRouter);
 
 app.get('/errortest', (req, res) => {
     throw new Error("Testing error");
