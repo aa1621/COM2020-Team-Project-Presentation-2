@@ -3,6 +3,7 @@ import { jest } from "@jest/globals";
 
 const maybeSingleMock = jest.fn();
 const insertSingleMock = jest.fn();
+const updateMaybeSingleMock = jest.fn();
 
 const supabaseUser = {
   from: jest.fn((table) => {
@@ -27,6 +28,13 @@ const supabaseAdmin = {
         insert: jest.fn(() => ({
           select: jest.fn(() => ({
             single: insertSingleMock,
+          })),
+        })),
+        update: jest.fn(() => ({
+          eq: jest.fn(() => ({
+            select: jest.fn(() => ({
+              maybeSingle: updateMaybeSingleMock,
+            })),
           })),
         })),
       };
@@ -72,6 +80,20 @@ describe("Pets integration tests", () => {
     expect(res.status).toBe(400);
     expect(res.body).toEqual({
       error: "pet_type is required. Valid options cat, bird, turtle",
+    });
+  });
+
+  test("PATCH /pets/me/nickname returns 400 when nickname is empty", async () => {
+    const res = await request(app)
+      .patch("/pets/me/nickname")
+      .set("x-user-id", "demo")
+      .send({
+        nickname: "   ",
+      });
+
+    expect(res.status).toBe(400);
+    expect(res.body).toEqual({
+      error: "nickname is required",
     });
   });
 });
