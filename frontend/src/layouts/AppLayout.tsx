@@ -1,17 +1,18 @@
 import { useEffect, useRef, useState } from "react";
 import { Outlet, useLocation } from "react-router-dom";
 import {
-  getAccessibilityMode,
-  setAccessibilityMode,
-  subscribeToAccessibilityMode,
+  getAccessibilitySettings,
+  setAccessibilitySettings,
+  subscribeToAccessibilitySettings,
+  type AccessibilitySettings,
 } from "../accessibility/accessibilityMode";
 import Sidebar from "../components/Sidebar";
 
 export default function AppLayout() {
   const { pathname } = useLocation();
   const [sidebarOpen, setSidebarOpen] = useState(false);
-  const [accessibilityMode, setAccessibilityModeState] = useState<boolean>(() =>
-    getAccessibilityMode()
+  const [accessibilitySettings, setAccessibilitySettingsState] = useState<AccessibilitySettings>(() =>
+    getAccessibilitySettings()
   );
   const mainRef = useRef<HTMLElement | null>(null);
 
@@ -24,10 +25,18 @@ export default function AppLayout() {
   }, [pathname]);
 
   useEffect(() => {
-    document.documentElement.dataset.accessibilityMode = accessibilityMode ? "true" : "false";
-  }, [accessibilityMode]);
+    document.documentElement.dataset.accessibilityMode = accessibilitySettings.enabled
+      ? "true"
+      : "false";
+    document.documentElement.dataset.accessibilityBoldText = accessibilitySettings.boldText
+      ? "true"
+      : "false";
+  }, [accessibilitySettings]);
 
-  useEffect(() => subscribeToAccessibilityMode(setAccessibilityModeState), []);
+  useEffect(
+    () => subscribeToAccessibilitySettings(setAccessibilitySettingsState),
+    []
+  );
 
   return (
     <div className="min-h-screen px-4 py-4 sm:px-6 sm:py-6">
@@ -41,8 +50,13 @@ export default function AppLayout() {
         <Sidebar
           isOpen={sidebarOpen}
           onToggle={() => setSidebarOpen((open) => !open)}
-          accessibilityMode={accessibilityMode}
-          onToggleAccessibilityMode={() => setAccessibilityMode(!accessibilityMode)}
+          accessibilitySettings={accessibilitySettings}
+          onToggleAccessibilityMode={() =>
+            setAccessibilitySettings({
+              ...accessibilitySettings,
+              enabled: !accessibilitySettings.enabled,
+            })
+          }
         />
 
         <main
@@ -59,7 +73,12 @@ export default function AppLayout() {
           </div>
 
           <div className="space-y-7">
-            <Outlet context={{ accessibilityMode, setAccessibilityMode }} />
+            <Outlet
+              context={{
+                accessibilitySettings,
+                setAccessibilitySettings,
+              }}
+            />
           </div>
         </main>
       </div>

@@ -2,17 +2,19 @@ import { useEffect, useMemo, useState } from "react";
 import { useOutletContext } from "react-router-dom";
 import PageShell from "../components/PageShell";
 import { getGroups } from "../api/groups";
+import type { AccessibilitySettings } from "../accessibility/accessibilityMode";
 import { useAuth } from "../auth/AuthProvider";
 import type { Group } from "../api/types";
 
 type LayoutContext = {
-  accessibilityMode: boolean;
-  setAccessibilityMode: (enabled: boolean) => void;
+  accessibilitySettings: AccessibilitySettings;
+  setAccessibilitySettings: (settings: AccessibilitySettings) => void;
 };
 
 export default function ProfilePage() {
   const { user } = useAuth();
-  const { accessibilityMode, setAccessibilityMode } = useOutletContext<LayoutContext>();
+  const { accessibilitySettings, setAccessibilitySettings } =
+    useOutletContext<LayoutContext>();
   const [groups, setGroups] = useState<Group[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -100,7 +102,8 @@ export default function ProfilePage() {
 
             <div>
               <div className="text-xs uppercase tracking-wide text-gray-500">Settings</div>
-              <div className="mt-2 rounded-xl bg-white p-4">
+              <div className="mt-2 space-y-3">
+                <div className="rounded-xl bg-white p-4">
                 <label
                   htmlFor="profile-accessibility-mode"
                   className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between"
@@ -113,24 +116,77 @@ export default function ProfilePage() {
                   </div>
                   <span
                     className={`relative inline-flex h-7 w-12 shrink-0 items-center rounded-full transition ${
-                      accessibilityMode ? "bg-[rgb(var(--app-brand))]" : "bg-[rgb(var(--app-line))]"
+                      accessibilitySettings.enabled
+                        ? "bg-[rgb(var(--app-brand))]"
+                        : "bg-[rgb(var(--app-line))]"
                     }`}
                   >
                     <input
                       id="profile-accessibility-mode"
                       type="checkbox"
-                      checked={accessibilityMode}
-                      onChange={(e) => setAccessibilityMode(e.target.checked)}
+                      checked={accessibilitySettings.enabled}
+                      onChange={(e) =>
+                        setAccessibilitySettings({
+                          ...accessibilitySettings,
+                          enabled: e.target.checked,
+                        })
+                      }
                       className="sr-only"
                       aria-label="Toggle accessibility mode"
                     />
                     <span
                       className={`absolute left-1 h-5 w-5 rounded-full bg-white shadow-sm transition ${
-                        accessibilityMode ? "translate-x-5" : "translate-x-0"
+                        accessibilitySettings.enabled ? "translate-x-5" : "translate-x-0"
                       }`}
                     />
                   </span>
                 </label>
+                </div>
+
+                <div
+                  className={`rounded-xl bg-white p-4 ${
+                    accessibilitySettings.enabled ? "" : "opacity-70"
+                  }`}
+                >
+                  <label
+                    htmlFor="profile-bold-text"
+                    className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between"
+                  >
+                    <div>
+                      <div className="text-sm font-medium text-gray-900">Bold text</div>
+                      <div className="text-xs text-gray-500">
+                        Makes interface copy and labels appear heavier and easier to read.
+                      </div>
+                    </div>
+                    <span
+                      className={`relative inline-flex h-7 w-12 shrink-0 items-center rounded-full transition ${
+                        accessibilitySettings.boldText
+                          ? "bg-[rgb(var(--app-brand))]"
+                          : "bg-[rgb(var(--app-line))]"
+                      }`}
+                    >
+                      <input
+                        id="profile-bold-text"
+                        type="checkbox"
+                        checked={accessibilitySettings.boldText}
+                        onChange={(e) =>
+                          setAccessibilitySettings({
+                            ...accessibilitySettings,
+                            boldText: e.target.checked,
+                          })
+                        }
+                        className="sr-only"
+                        aria-label="Toggle bold text"
+                        disabled={!accessibilitySettings.enabled}
+                      />
+                      <span
+                        className={`absolute left-1 h-5 w-5 rounded-full bg-white shadow-sm transition ${
+                          accessibilitySettings.boldText ? "translate-x-5" : "translate-x-0"
+                        }`}
+                      />
+                    </span>
+                  </label>
+                </div>
               </div>
             </div>
           </div>

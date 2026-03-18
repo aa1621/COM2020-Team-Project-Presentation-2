@@ -1,5 +1,6 @@
 import { NavLink } from "react-router-dom";
 import { useAuth } from "../auth/AuthProvider";
+import type { AccessibilitySettings } from "../accessibility/accessibilityMode";
 
 type NavItem = {
   label: string;
@@ -15,7 +16,7 @@ const baseNavItems: NavItem[] = [
   { label: "Challenges", href: "/app/challenges", icon: "challenges" },
   { label: "Log action", href: "/app/log-action", icon: "log" },
   { label: "Leaderboards", href: "/app/leaderboards", icon: "leaderboards" },
-  { label: "Profile", href: "/app/profile", icon: "profile" },
+  { label: "Profile / Settings", href: "/app/profile", icon: "profile" },
 ];
 
 function NavIcon({ icon }: { icon: NavItem["icon"] }) {
@@ -93,12 +94,12 @@ function NavIcon({ icon }: { icon: NavItem["icon"] }) {
 export default function Sidebar({
   isOpen,
   onToggle,
-  accessibilityMode,
+  accessibilitySettings,
   onToggleAccessibilityMode,
 }: {
   isOpen: boolean;
   onToggle: () => void;
-  accessibilityMode: boolean;
+  accessibilitySettings: AccessibilitySettings;
   onToggleAccessibilityMode: () => void;
 }) {
   const { clearUser, user } = useAuth();
@@ -115,6 +116,8 @@ export default function Sidebar({
     clearUser();
     window.location.href = "/login";
   }
+
+  const accessibilityMode = accessibilitySettings.enabled;
 
   return (
     <aside
@@ -159,6 +162,7 @@ export default function Sidebar({
               <NavLink
                 key={item.href}
                 to={item.href}
+                aria-label={item.label}
                 className={({ isActive }) =>
                   `rounded-2xl px-4 py-3 text-sm font-medium transition ${
                     isActive

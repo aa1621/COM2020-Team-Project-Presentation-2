@@ -119,6 +119,19 @@
     border-width: 2px;
   }
 
+  html[data-accessibility-bold-text="true"] body,
+  html[data-accessibility-bold-text="true"] input,
+  html[data-accessibility-bold-text="true"] select,
+  html[data-accessibility-bold-text="true"] textarea,
+  html[data-accessibility-bold-text="true"] button {
+    font-weight: 600;
+  }
+
+  html[data-accessibility-bold-text="true"] .app-muted {
+    color: rgb(51 65 55);
+    font-weight: 600;
+  }
+
   @media (prefers-reduced-motion: reduce) {
     html {
       scroll-behavior: auto;
