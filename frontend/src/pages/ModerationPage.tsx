@@ -1,7 +1,7 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useState } from "react";
 import PageShell from "../components/PageShell";
 import { decideSubmission, getModerationQueue } from "../api/moderation";
-import { getDemoUser } from "../auth/demoAuth";
+import { useAuth } from "../auth/AuthProvider";
 import type { ChallengeSubmission, SubmissionEvidence } from "../api/types";
 
 type QueueStatus = "pending_review" | "approved" | "rejected";
@@ -54,6 +54,7 @@ function parseEvidence(raw: ChallengeSubmission["evidence"]) {
 }
 
 export default function ModerationPage() {
+  const { user } = useAuth();
   const [status, setStatus] = useState<QueueStatus>("pending_review");
   const [queue, setQueue] = useState<ChallengeSubmission[]>([]);
   const [loading, setLoading] = useState(false);
@@ -62,7 +63,6 @@ export default function ModerationPage() {
   const [actingSubmissionId, setActingSubmissionId] = useState<string | null>(null);
   const [reason, setReason] = useState("");
 
-  const user = useMemo(() => getDemoUser(), []);
   const role = user?.role === "moderator" || user?.role === "maintainer" ? user.role : null;
 
   useEffect(() => {
@@ -71,7 +71,7 @@ export default function ModerationPage() {
       setLoading(true);
       setError(null);
       try {
-        const res = await getModerationQueue(user.user_id, role, { status, limit: 100 });
+        const res = await getModerationQueue(role, { status, limit: 100 });
         setQueue(res.submissions || []);
       } catch (err) {
         setError(err instanceof Error ? err.message : "Failed to load moderation queue.");
@@ -90,7 +90,7 @@ export default function ModerationPage() {
     setError(null);
     setResult(null);
     try {
-      const res = await decideSubmission(submissionId, decision, user.user_id, role, reason);
+      const res = await decideSubmission(submissionId, decision, role, reason);
       setQueue((prev) =>
         prev.map((item) => (item.submission_id === submissionId ? res.submission : item))
       );

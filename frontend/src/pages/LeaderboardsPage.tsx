@@ -1,23 +1,42 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useState } from "react";
 import PageShell from "../components/PageShell";
 import { getUserLeaderboards } from "../api/leaderboards";
-import { getDemoUser } from "../auth/demoAuth";
+import { useAuth } from "../auth/AuthProvider";
+import { getMyPet } from "../api/pets";
 import type { UserLeaderboardEntry } from "../api/types";
-import { getGamificationState, getPetDisplay } from "../gamification/store";
 
 type Scope = "all" | "group";
 
 export default function LeaderboardsPage() {
+  const { user } = useAuth();
   const [entries, setEntries] = useState<UserLeaderboardEntry[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [scope, setScope] = useState<Scope>("all");
-  const user = useMemo(() => getDemoUser(), []);
-  const myPetDisplay = useMemo(() => {
-    if (!user?.user_id) return null;
-    const state = getGamificationState(user.user_id);
-    return state ? getPetDisplay(state.pet.nickname) : null;
-  }, [user]);
+  const [myPetName, setMyPetName] = useState<string | null>(null);
+
+  useEffect(() => {
+    let cancelled = false;
+
+    async function loadMyPet() {
+      if (!user?.user_id) return;
+      try {
+        const res = await getMyPet();
+        if (!cancelled) {
+          setMyPetName(res.pet.nickname);
+        }
+      } catch {
+        if (!cancelled) {
+          setMyPetName(null);
+        }
+      }
+    }
+
+    loadMyPet();
+    return () => {
+      cancelled = true;
+    };
+  }, [user?.user_id]);
 
   useEffect(() => {
     async function load() {
@@ -92,8 +111,8 @@ export default function LeaderboardsPage() {
             {entries.map((entry, index) => {
               const isMe = user?.user_id === entry.user_id;
               const displayName = entry.display_name || entry.username;
-              const petLabel = isMe && myPetDisplay ? myPetDisplay.title : "Pet coming soon";
-              const petAvatar = isMe && myPetDisplay ? myPetDisplay.avatarLabel : null;
+              const petLabel = isMe && myPetName ? myPetName : "Pet linked separately";
+              const petAvatar = isMe && myPetName ? myPetName.slice(0, 2).toUpperCase() : null;
 
               return (
                 <div

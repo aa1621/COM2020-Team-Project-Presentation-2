@@ -29,17 +29,12 @@ export function getChallengeSubmissions(
 
 export function createChallengeSubmission(
   challengeId: string,
-  body: CreateChallengeSubmissionRequest,
-  demoUserId: string
+  body: CreateChallengeSubmissionRequest
 ) {
   return apiFetch<CreateChallengeSubmissionResponse>(
     `/challenges/${challengeId}/submissions`,
     {
       method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        "x-user-id": demoUserId,
-      },
       body: JSON.stringify(body),
     }
   );

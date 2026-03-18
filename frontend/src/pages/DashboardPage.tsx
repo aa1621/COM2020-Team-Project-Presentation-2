@@ -1,9 +1,10 @@
 import { useEffect, useMemo, useState } from "react";
 import { apiFetch } from "../api/client";
+import { getCoinBalance } from "../api/coins";
 import { getActionLogs } from "../api/actionLogs";
 import { useAuth } from "../auth/AuthProvider";
-import type { ActionType, GetActionTypesResponse } from "../api/types";
-import { ensureGamificationState, getPetDisplay } from "../gamification/store";
+import { getMyPet } from "../api/pets";
+import type { ActionType, GetActionTypesResponse, Pet } from "../api/types";
 
 type DateRangeOption = 7 | 30;
 
@@ -32,8 +33,6 @@ function buildDateRange(days: number) {
 export default function DashboardPage() {
   const { user } = useAuth();
   const displayName = user?.display_name || user?.username || "there";
-  const petState = user?.user_id ? ensureGamificationState(user.user_id) : null;
-  const petDisplay = petState ? getPetDisplay(petState.pet.nickname) : null;
 
   const [actionTypes, setActionTypes] = useState<ActionType[]>([]);
   const [logs, setLogs] = useState<
@@ -44,6 +43,8 @@ export default function DashboardPage() {
       calculated_co2e: number;
     }>
   >([]);
+  const [pet, setPet] = useState<Pet | null>(null);
+  const [coins, setCoins] = useState<number | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -73,8 +74,16 @@ export default function DashboardPage() {
       setLoading(true);
       setError(null);
       try {
-        const typesRes = await apiFetch<GetActionTypesResponse>("/action-types");
-        if (!cancelled) setActionTypes(typesRes.actionTypes);
+        const [typesRes, coinRes, petRes] = await Promise.all([
+          apiFetch<GetActionTypesResponse>("/action-types"),
+          getCoinBalance(),
+          getMyPet().catch(() => null),
+        ]);
+        if (!cancelled) {
+          setActionTypes(typesRes.actionTypes);
+          setCoins(coinRes.coins);
+          setPet(petRes?.pet ?? null);
+        }
       } catch (err) {
         if (!cancelled) {
           setError(err instanceof Error ? err.message : "Failed to load action types.");
@@ -174,19 +183,19 @@ export default function DashboardPage() {
             </div>
           </div>
 
-          {petState && petDisplay ? (
+          {pet ? (
             <div className="grid gap-3 p-6 sm:grid-cols-3">
               <div className="sm:col-span-3">
                 <div className="app-card-soft flex items-center gap-4 p-4">
                   <div className="flex h-20 w-20 items-center justify-center rounded-[1.2rem] bg-white text-2xl font-semibold text-[rgb(var(--app-ink))]">
-                    {petDisplay.avatarLabel}
+                    {pet.nickname.slice(0, 2).toUpperCase()}
                   </div>
                   <div className="min-w-0">
                     <div className="text-xs uppercase tracking-[0.16em] app-muted">Pet companion</div>
                     <div className="truncate text-2xl font-semibold text-[rgb(var(--app-ink))]">
-                      {petState.pet.nickname}
+                      {pet.nickname}
                     </div>
-                    <div className="text-sm app-muted">{petDisplay.tagline}</div>
+                    <div className="text-sm app-muted">{pet.pet_type} linked from the backend.</div>
                   </div>
                 </div>
               </div>
@@ -194,35 +203,35 @@ export default function DashboardPage() {
               <div className="app-stat">
                 <div className="text-xs uppercase tracking-wide app-muted">CG67coin</div>
                 <div className="mt-1 text-2xl font-semibold text-[rgb(var(--app-ink))]">
-                  {petState.coins}
+                  {coins ?? 0}
                 </div>
               </div>
               <div className="app-stat">
                 <div className="text-xs uppercase tracking-wide app-muted">Pet streak</div>
                 <div className="mt-1 text-2xl font-semibold text-[rgb(var(--app-ink))]">
-                  {petState.pet.streakDays}
+                  {pet.streak}
                 </div>
               </div>
               <div className="app-stat">
                 <div className="text-xs uppercase tracking-wide app-muted">Status</div>
                 <div
                   className={`mt-2 text-sm font-semibold ${
-                    petState.pet.status === "alive" ? "text-emerald-700" : "text-rose-700"
+                    pet.status === "alive" ? "text-emerald-700" : "text-rose-700"
                   }`}
                 >
-                  {petState.pet.status === "alive" ? "Alive and active" : "Needs revive"}
+                  {pet.status === "alive" ? "Alive and active" : "Needs revive"}
                 </div>
               </div>
 
               <div className="app-stat sm:col-span-3">
                 <div className="flex items-center justify-between text-xs uppercase tracking-wide app-muted">
                   <span>Energy</span>
-                  <span>{petState.pet.energy}%</span>
+                  <span>{pet.energy}%</span>
                 </div>
                 <div className="mt-3 h-2 rounded-full bg-white">
                   <div
                     className="h-2 rounded-full bg-amber-400"
-                    style={{ width: `${petState.pet.energy}%` }}
+                    style={{ width: `${pet.energy}%` }}
                   />
                 </div>
               </div>

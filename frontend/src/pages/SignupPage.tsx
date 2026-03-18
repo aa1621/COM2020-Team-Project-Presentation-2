@@ -3,7 +3,6 @@ import { Link, Navigate, useNavigate } from "react-router-dom";
 import PageShell from "../components/PageShell";
 import { signup } from "../api/auth";
 import { useAuth } from "../auth/AuthProvider";
-import { ensureGamificationState } from "../gamification/store";
 
 export default function SignupPage() {
   const { isAuthenticated, setUser } = useAuth();
@@ -46,7 +45,6 @@ export default function SignupPage() {
         password,
       });
       setUser(res.user);
-      ensureGamificationState(res.user.user_id);
       navigate("/app/dashboard");
     } catch (err) {
       setError(err instanceof Error ? err.message : "Could not create account.");

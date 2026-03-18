@@ -5,7 +5,7 @@ import {
   getChallengeSubmissions,
   getChallenges,
 } from "../api/challenges";
-import { getDemoUser, getDemoUserId } from "../auth/demoAuth";
+import { useAuth } from "../auth/AuthProvider";
 import type {
   Challenge,
   ChallengeSubmission,
@@ -28,6 +28,7 @@ function readFileAsDataUrl(file: File) {
 }
 
 export default function ChallengesPage() {
+  const { user } = useAuth();
   const [tab, setTab] = useState<Tab>("Group challenges");
   const [time, setTime] = useState<TimeFilter>("Weekly");
   const [windowFilter, setWindowFilter] = useState<ChallengeWindow>("current");
@@ -154,9 +155,7 @@ export default function ChallengesPage() {
     setSubmitError(null);
     setLastResult(null);
 
-    const demoUserId = getDemoUserId();
-    const user = getDemoUser();
-    if (!demoUserId) {
+    if (!user?.user_id) {
       setSubmitError("Please sign in before submitting.");
       return;
     }
@@ -190,18 +189,14 @@ export default function ChallengesPage() {
       const isGroup = selectedChallenge.challenge_type === "group";
       const groupId = isGroup ? user?.group_id ?? null : null;
 
-      const res = await createChallengeSubmission(
-        selectedChallenge.challenge_id,
-        {
-          total_co2e: total,
-          evidence: evidencePayload,
-          groupId,
-          group_id: groupId,
-          userId: demoUserId,
-          user_id: demoUserId,
-        },
-        demoUserId
-      );
+      const res = await createChallengeSubmission(selectedChallenge.challenge_id, {
+        total_co2e: total,
+        evidence: evidencePayload,
+        groupId,
+        group_id: groupId,
+        userId: user.user_id,
+        user_id: user.user_id,
+      });
       setLastResult(
         `Submitted. Status: ${res.submission.status}. Points: ${res.submission.points}.`
       );

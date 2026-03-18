@@ -4,7 +4,6 @@ import type { DecideSubmissionResponse, ModerationQueueResponse } from "./types"
 type ModeratorRole = "moderator" | "maintainer";
 
 export function getModerationQueue(
-  demoUserId: string,
   role: ModeratorRole,
   options: { status?: string; limit?: number } = {}
 ) {
@@ -15,7 +14,6 @@ export function getModerationQueue(
 
   return apiFetch<ModerationQueueResponse>(`/moderation/queue${suffix}`, {
     headers: {
-      "x-user-id": demoUserId,
       "x-user-role": role,
     },
   });
@@ -24,7 +22,6 @@ export function getModerationQueue(
 export function decideSubmission(
   submissionId: string,
   decision: "approve" | "reject",
-  demoUserId: string,
   role: ModeratorRole,
   reason?: string
 ) {
@@ -33,8 +30,6 @@ export function decideSubmission(
     {
       method: "POST",
       headers: {
-        "Content-Type": "application/json",
-        "x-user-id": demoUserId,
         "x-user-role": role,
       },
       body: JSON.stringify({
