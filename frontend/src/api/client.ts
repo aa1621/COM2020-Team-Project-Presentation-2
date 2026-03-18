@@ -1,15 +1,25 @@
+import { getDemoUserId } from "../auth/demoAuth";
+
 const API_BASE_URL =
   import.meta.env.VITE_API_BASE_URL || "http://localhost:3000";
 
+type ApiFetchOptions = RequestInit & {
+  skipAuth?: boolean;
+};
+
 export async function apiFetch<T>(
   path: string,
-  options: RequestInit = {}
+  options: ApiFetchOptions = {}
 ): Promise<T> {
+  const { skipAuth = false, headers, ...rest } = options;
+  const userId = skipAuth ? null : getDemoUserId();
+
   const res = await fetch(`${API_BASE_URL}${path}`, {
-    ...options,
+    ...rest,
     headers: {
       "Content-Type": "application/json",
-      ...(options.headers || {}),
+      ...(userId ? { "x-user-id": userId } : {}),
+      ...(headers || {}),
     },
   });
 

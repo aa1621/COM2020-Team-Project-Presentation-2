@@ -2,17 +2,17 @@ import { useState } from "react";
 import { Link, Navigate, useNavigate } from "react-router-dom";
 import PageShell from "../components/PageShell";
 import { loginDemo } from "../api/auth";
-import { getDemoUser, setDemoUser } from "../auth/demoAuth";
+import { useAuth } from "../auth/AuthProvider";
 
 export default function LoginPage() {
-  const existingUser = getDemoUser();
+  const { isAuthenticated, setUser } = useAuth();
   const navigate = useNavigate();
   const [username, setUsername] = useState("");
   const [password, setPassword] = useState("");
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  if (existingUser) {
+  if (isAuthenticated) {
     return <Navigate to="/app/dashboard" replace />;
   }
 
@@ -28,7 +28,7 @@ export default function LoginPage() {
     setSubmitting(true);
     try {
       const res = await loginDemo(username.trim(), password);
-      setDemoUser(res.user);
+      setUser(res.user);
       navigate("/app/dashboard");
     } catch (err) {
       setError(err instanceof Error ? err.message : "Login failed.");

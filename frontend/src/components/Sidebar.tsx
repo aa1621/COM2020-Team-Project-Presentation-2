@@ -1,5 +1,5 @@
 import { NavLink } from "react-router-dom";
-import { clearDemoUser, getDemoUser } from "../auth/demoAuth";
+import { useAuth } from "../auth/AuthProvider";
 
 type NavItem = {
   label: string;
@@ -97,7 +97,7 @@ export default function Sidebar({
   isOpen: boolean;
   onToggle: () => void;
 }) {
-  const user = getDemoUser();
+  const { clearUser, user } = useAuth();
   const canModerate = user?.role === "moderator" || user?.role === "maintainer";
   const navItems: NavItem[] = canModerate
     ? [
@@ -108,7 +108,7 @@ export default function Sidebar({
     : baseNavItems;
 
   function handleLogout() {
-    clearDemoUser();
+    clearUser();
     window.location.href = "/login";
   }
 

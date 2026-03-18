@@ -1,10 +1,12 @@
 import { Navigate, Outlet } from "react-router-dom";
-import { getDemoUser } from "./demoAuth";
+import { useAuth } from "./AuthProvider";
 
 export default function RequireAuth() {
-  const user = getDemoUser();
-  if (!user) {
+  const { isAuthenticated } = useAuth();
+
+  if (!isAuthenticated) {
     return <Navigate to="/login" replace />;
   }
+
   return <Outlet />;
 }
