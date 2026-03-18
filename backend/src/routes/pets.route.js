@@ -1,8 +1,9 @@
 import { Router } from "express";
-import {createPet, getMyPet, updateNickname, revivePet, updatePetStats} from "../controllers/pets.controller.js";
+import {createPet, getMyPet, listPetCatalog, updateNickname, revivePet, updatePetStats} from "../controllers/pets.controller.js";
 
 const router = Router();
 
+router.get("/catalog", listPetCatalog); // GET /pets/catalog
 router.post("/", createPet); // POST /pets (use for choosing starting pet)
 router.get("/me", getMyPet); // GET /pets/me
 router.patch("/me/nickname", updateNickname); // PATCH /pets/me/nickaname

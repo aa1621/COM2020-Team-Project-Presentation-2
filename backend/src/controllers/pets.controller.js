@@ -12,14 +12,62 @@ function normalizeUserId(raw) {
     return raw;
 }
 
-const SUPABASE_STORAGE_URL = process.env.SUPABASE_URL + "/storage/v1/object/public/pet-assets";
+const REVIVE_COST = 50; // Need to discuss
 
-function getPetImageUrl(pet_type) {
-    return `${SUPABASE_STORAGE_URL}/pets/${pet_type}.png`;
+async function getCatalogPet({ petCatalogId, petType }) {
+    let query = supabaseUser
+        .from("pet_catalog")
+        .select("pet_type, name, description, image_url, is_active, sort_order")
+        .eq("pet_type", petType);
+
+    const { data, error } = await query.maybeSingle();
+    if (error) throw error;
+    return data;
 }
 
-const VALID_PET_TYPES = ["cat", "bird", "turtle"];
-const REVIVE_COST = 50; // Need to discuss
+async function insertPetWithCatalog(userId, catalogPet, nickname) {
+    const payload = {
+        user_id: userId,
+        pet_type: catalogPet.pet_type,
+        nickname,
+        image_url: catalogPet.image_url,
+        status: "alive",
+        health: 100,
+        happiness: 100,
+        energy: 100,
+        level: 1,
+        xp: 0,
+        streak: 0,
+        last_active_date: new Date().toISOString().split("T")[0],
+        adopted_at: new Date().toISOString(),
+    };
+
+    const { data: pet, error } = await supabaseAdmin
+        .from("pets")
+        .insert(payload)
+        .select("*")
+        .single();
+
+    if (!error) return { pet, error: null };
+
+    return { pet: null, error };
+}
+
+export async function listPetCatalog(req, res, next) {
+    try {
+        const { data: pets, error } = await supabaseUser
+            .from("pet_catalog")
+            .select("pet_type, name, description, image_url, is_active, sort_order")
+            .eq("is_active", true)
+            .order("sort_order", { ascending: true });
+
+        if (error) return next(error);
+
+        return res.status(200).json({ pets: pets ?? [] });
+    } catch (err) {
+        next(err);
+    }
+}
 
 export async function createPet(req, res, next) {
     try {
@@ -28,11 +76,9 @@ export async function createPet(req, res, next) {
             return res.status(400).json({error: 'Missing user id. Pass header "x-user-id"'});
         }
 
-        const pet_type = (req.body?.pet_type || "").trim();
-        if (!pet_type || !VALID_PET_TYPES.includes(pet_type)) {
-            return res.status(400).json({
-                error: `pet_type is required. Valid options ${VALID_PET_TYPES.join(", ")}`,
-            });
+        const petType = (req.body?.pet_type || "").trim() || null;
+        if (!petType) {
+            return res.status(400).json({ error: '"pet_type" is required' });
         }
 
         const nickname = (req.body?.nickname || "My Pet").trim();
@@ -47,26 +93,15 @@ export async function createPet(req, res, next) {
                 return res.status(409).json({error: "User already has a pet"});
             }
 
-            const {data: pet, error} = await supabaseAdmin
-                .from("pets")
-                .insert({
-                    user_id: userId,
-                    pet_type,
-                    nickname,
-                    image_url: getPetImageUrl(pet_type),
-                    status: "alive",
-                    health: 100,
-                    happiness: 100,
-                    energy: 100,
-                    level: 1,
-                    xp: 0,
-                    streak: 0,
-                    last_active_date: new Date().toISOString().split("T")[0],
-                    adopted_at: new Date().toISOString(),
-                })
-                .select("*")
-                .single();
+            const catalogPet = await getCatalogPet({ petType });
+            if (!catalogPet) {
+                return res.status(404).json({ error: "Selected pet was not found in the catalog" });
+            }
+            if (catalogPet.is_active === false) {
+                return res.status(410).json({ error: "Selected pet is not currently available" });
+            }
 
+            const { pet, error } = await insertPetWithCatalog(userId, catalogPet, nickname);
             if (error) return next(error);
 
             return res.status(201).json({ pet });

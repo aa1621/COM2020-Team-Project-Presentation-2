@@ -3,9 +3,14 @@ import type {
   CreatePetRequest,
   CreatePetResponse,
   GetMyPetResponse,
+  PetCatalogResponse,
   RevivePetResponse,
   UpdatePetNicknameResponse,
 } from "./types";
+
+export function getPetCatalog() {
+  return apiFetch<PetCatalogResponse>("/pets/catalog");
+}
 
 export function getMyPet() {
   return apiFetch<GetMyPetResponse>("/pets/me");

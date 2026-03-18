@@ -283,12 +283,25 @@ export type GetMyPetResponse = {
 };
 
 export type CreatePetRequest = {
-  pet_type: string;
+  pet_type?: string;
   nickname?: string;
 };
 
 export type CreatePetResponse = {
   pet: Pet;
+};
+
+export type PetCatalogEntry = {
+  pet_type: string;
+  name: string;
+  description: string | null;
+  image_url: string | null;
+  is_active: boolean;
+  sort_order: number | null;
+};
+
+export type PetCatalogResponse = {
+  pets: PetCatalogEntry[];
 };
 
 export type UpdatePetNicknameResponse = {

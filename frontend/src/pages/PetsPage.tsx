@@ -3,14 +3,8 @@ import PageShell from "../components/PageShell";
 import { useAuth } from "../auth/AuthProvider";
 import { getCoinBalance } from "../api/coins";
 import { equipInventoryItem, getInventory, unequipInventoryItem } from "../api/inventory";
-import { createPet, getMyPet, revivePet, updatePetNickname } from "../api/pets";
-import type { InventoryItem, Pet } from "../api/types";
-
-const PET_TYPES = [
-  { id: "cat", label: "Cat", summary: "Steady, curious, and campus-ready." },
-  { id: "bird", label: "Bird", summary: "Lightweight, alert, and quick to level up." },
-  { id: "turtle", label: "Turtle", summary: "Calm, resilient, and built for consistency." },
-] as const;
+import { createPet, getMyPet, getPetCatalog, revivePet, updatePetNickname } from "../api/pets";
+import type { InventoryItem, Pet, PetCatalogEntry } from "../api/types";
 
 function isMissingPetError(error: unknown) {
   return error instanceof Error && /no pet found|user has no pet/i.test(error.message);
@@ -76,6 +70,7 @@ function StatCard({
 export default function PetsPage() {
   const { user } = useAuth();
   const [pet, setPet] = useState<Pet | null>(null);
+  const [petCatalog, setPetCatalog] = useState<PetCatalogEntry[]>([]);
   const [coins, setCoins] = useState<number | null>(null);
   const [inventory, setInventory] = useState<InventoryItem[]>([]);
   const [loading, setLoading] = useState(true);
@@ -84,7 +79,7 @@ export default function PetsPage() {
   const [message, setMessage] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [nicknameDraft, setNicknameDraft] = useState("");
-  const [adoptType, setAdoptType] = useState<(typeof PET_TYPES)[number]["id"]>("cat");
+  const [adoptType, setAdoptType] = useState("");
   const [adoptNickname, setAdoptNickname] = useState("");
 
   useEffect(() => {
@@ -96,17 +91,20 @@ export default function PetsPage() {
       setError(null);
 
       try {
-        const [{ coins: coinBalance }, petRes] = await Promise.all([
+        const [{ coins: coinBalance }, petRes, catalogRes] = await Promise.all([
           getCoinBalance(),
           getMyPet().catch((err) => {
             if (isMissingPetError(err)) return null;
             throw err;
           }),
+          getPetCatalog(),
         ]);
 
         if (cancelled) return;
 
         setCoins(coinBalance);
+        setPetCatalog(catalogRes.pets || []);
+        setAdoptType((current) => current || catalogRes.pets?.[0]?.pet_type || "");
 
         if (!petRes) {
           setPet(null);
@@ -160,6 +158,10 @@ export default function PetsPage() {
   }
 
   async function handleCreatePet() {
+    if (!adoptType) {
+      setError("Choose a starter pet first.");
+      return;
+    }
     setCreating(true);
     setError(null);
     setMessage(null);
@@ -267,13 +269,13 @@ export default function PetsPage() {
             </p>
 
             <div className="mt-6 grid gap-4 md:grid-cols-3">
-              {PET_TYPES.map((option) => (
+              {petCatalog.map((option) => (
                 <button
-                  key={option.id}
+                  key={option.pet_type}
                   type="button"
-                  onClick={() => setAdoptType(option.id)}
+                  onClick={() => setAdoptType(option.pet_type)}
                   className={`rounded-[1.6rem] border p-5 text-left transition ${
-                    adoptType === option.id
+                    adoptType === option.pet_type
                       ? "border-transparent bg-[rgb(var(--app-brand))] text-white shadow-sm"
                       : "border-[rgb(var(--app-line))] bg-white text-[rgb(var(--app-ink))]"
                   }`}
@@ -281,8 +283,10 @@ export default function PetsPage() {
                   <div className="text-xs font-semibold uppercase tracking-[0.18em] opacity-80">
                     Starter
                   </div>
-                  <div className="mt-3 text-2xl font-semibold">{option.label}</div>
-                  <div className="mt-2 text-sm opacity-90">{option.summary}</div>
+                  <div className="mt-3 text-2xl font-semibold">{option.name}</div>
+                  <div className="mt-2 text-sm opacity-90">
+                    {option.description || option.pet_type}
+                  </div>
                 </button>
               ))}
             </div>

@@ -3,8 +3,8 @@ import { apiFetch } from "../api/client";
 import { getCoinBalance } from "../api/coins";
 import { getActionLogs } from "../api/actionLogs";
 import { useAuth } from "../auth/AuthProvider";
-import { getMyPet } from "../api/pets";
-import type { ActionType, GetActionTypesResponse, Pet } from "../api/types";
+import { createPet, getMyPet, getPetCatalog } from "../api/pets";
+import type { ActionType, GetActionTypesResponse, Pet, PetCatalogEntry } from "../api/types";
 
 type DateRangeOption = 7 | 30;
 
@@ -30,6 +30,108 @@ function buildDateRange(days: number) {
   return out;
 }
 
+function isMissingPetError(error: unknown) {
+  return error instanceof Error && /no pet found|user has no pet/i.test(error.message);
+}
+
+function PetSetupModal({
+  nickname,
+  onChangeNickname,
+  onChooseType,
+  onSubmit,
+  petCatalog,
+  petType,
+  submitting,
+  error,
+}: {
+  nickname: string;
+  onChangeNickname: (value: string) => void;
+  onChooseType: (value: string) => void;
+  onSubmit: () => void;
+  petCatalog: PetCatalogEntry[];
+  petType: string;
+  submitting: boolean;
+  error: string | null;
+}) {
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-[rgba(15,23,42,0.52)] p-4 backdrop-blur-sm">
+      <div className="w-full max-w-4xl overflow-hidden rounded-[2rem] border border-white/60 bg-[linear-gradient(145deg,rgba(244,252,246,0.98),rgba(255,248,234,0.98))] shadow-[0_30px_90px_rgba(15,23,42,0.24)]">
+        <div className="grid gap-0 lg:grid-cols-[0.92fr_1.08fr]">
+          <div className="bg-[linear-gradient(160deg,rgba(16,185,129,0.18),rgba(250,204,21,0.15))] p-6 lg:p-8">
+            <div className="app-chip bg-white/80">Companion setup</div>
+            <h2 className="mt-4 text-4xl font-semibold tracking-tight text-[rgb(var(--app-ink))]">
+              Choose your first campus companion
+            </h2>
+            <p className="mt-4 max-w-md text-sm leading-7 app-muted">
+              Pick a starter pet and give it a name before you start tracking progress.
+            </p>
+          </div>
+
+          <div className="p-6 lg:p-8">
+            <div className="grid gap-4 md:grid-cols-3">
+              {petCatalog.map((option) => (
+                <button
+                  key={option.pet_type}
+                  type="button"
+                  onClick={() => onChooseType(option.pet_type)}
+                  className={`rounded-[1.6rem] border p-5 text-left transition ${
+                    petType === option.pet_type
+                      ? "border-transparent bg-[rgb(var(--app-brand))] text-white shadow-sm"
+                      : "border-[rgb(var(--app-line))] bg-white text-[rgb(var(--app-ink))]"
+                  }`}
+                >
+                  <div className="overflow-hidden rounded-[1.2rem] bg-[rgb(var(--app-soft))]">
+                    {option.image_url ? (
+                      <img
+                        src={option.image_url}
+                        alt={option.name}
+                        className="h-28 w-full object-cover"
+                      />
+                    ) : (
+                      <div className="flex h-28 w-full items-center justify-center text-3xl font-semibold">
+                        {option.name.slice(0, 1).toUpperCase()}
+                      </div>
+                    )}
+                  </div>
+                  <div className="text-xs font-semibold uppercase tracking-[0.18em] opacity-80">
+                    Starter
+                  </div>
+                  <div className="mt-3 text-2xl font-semibold">{option.name}</div>
+                  <div className="mt-2 text-sm opacity-90">
+                    {option.description || option.pet_type}
+                  </div>
+                </button>
+              ))}
+            </div>
+
+            <input
+              className="mt-6 w-full rounded-[1.35rem] border border-[rgb(var(--app-line))] bg-white px-4 py-3 text-sm text-[rgb(var(--app-ink))]"
+              value={nickname}
+              onChange={(e) => onChangeNickname(e.target.value)}
+              placeholder="Companion nickname"
+            />
+
+            {error && (
+              <div className="mt-4 rounded-[1.2rem] bg-red-50 px-4 py-3 text-sm text-red-700">
+                {error}
+              </div>
+            )}
+
+            <button
+              type="button"
+              onClick={onSubmit}
+              disabled={submitting}
+              className="mt-6 rounded-[1.35rem] bg-[rgb(var(--app-ink))] px-5 py-3 text-sm font-semibold text-white disabled:opacity-50"
+            >
+              {submitting ? "Creating companion..." : "Create companion"}
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 export default function DashboardPage() {
   const { user } = useAuth();
   const displayName = user?.display_name || user?.username || "there";
@@ -44,9 +146,14 @@ export default function DashboardPage() {
     }>
   >([]);
   const [pet, setPet] = useState<Pet | null>(null);
+  const [petCatalog, setPetCatalog] = useState<PetCatalogEntry[]>([]);
   const [coins, setCoins] = useState<number | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [petSetupType, setPetSetupType] = useState("");
+  const [petSetupNickname, setPetSetupNickname] = useState("");
+  const [petSetupSubmitting, setPetSetupSubmitting] = useState(false);
+  const [petSetupError, setPetSetupError] = useState<string | null>(null);
 
   const [dateRange, setDateRange] = useState<DateRangeOption>(7);
   const [category, setCategory] = useState("all");
@@ -74,15 +181,22 @@ export default function DashboardPage() {
       setLoading(true);
       setError(null);
       try {
-        const [typesRes, coinRes, petRes] = await Promise.all([
+        const [typesRes, coinRes, petRes, catalogRes] = await Promise.all([
           apiFetch<GetActionTypesResponse>("/action-types"),
           getCoinBalance(),
-          getMyPet().catch(() => null),
+          getMyPet().catch((err) => {
+            if (isMissingPetError(err)) return null;
+            throw err;
+          }),
+          getPetCatalog(),
         ]);
         if (!cancelled) {
           setActionTypes(typesRes.actionTypes);
           setCoins(coinRes.coins);
           setPet(petRes?.pet ?? null);
+          setPetCatalog(catalogRes.pets || []);
+          setPetSetupType((current) => current || catalogRes.pets?.[0]?.pet_type || "");
+          setPetSetupNickname((petRes?.pet?.nickname || user.display_name || user.username || "").trim());
         }
       } catch (err) {
         if (!cancelled) {
@@ -150,9 +264,50 @@ export default function DashboardPage() {
     [totalsByDate]
   );
 
+  async function handleCreatePetFromDashboard() {
+    const nickname = petSetupNickname.trim();
+    if (!nickname) {
+      setPetSetupError("Choose a nickname for your companion.");
+      return;
+    }
+    if (!petSetupType) {
+      setPetSetupError("Choose a companion type.");
+      return;
+    }
+
+    setPetSetupSubmitting(true);
+    setPetSetupError(null);
+    try {
+      const res = await createPet({
+        pet_type: petSetupType,
+        nickname,
+      });
+      setPet(res.pet);
+      setPetSetupNickname(res.pet.nickname);
+    } catch (err) {
+      setPetSetupError(err instanceof Error ? err.message : "Could not create companion.");
+    } finally {
+      setPetSetupSubmitting(false);
+    }
+  }
+
   return (
-    <div className="space-y-7">
-      <section className="app-card overflow-hidden">
+    <>
+      {!loading && !pet && user?.user_id ? (
+        <PetSetupModal
+          nickname={petSetupNickname}
+          onChangeNickname={setPetSetupNickname}
+          onChooseType={setPetSetupType}
+          onSubmit={handleCreatePetFromDashboard}
+          petCatalog={petCatalog}
+          petType={petSetupType}
+          submitting={petSetupSubmitting}
+          error={petSetupError}
+        />
+      ) : null}
+
+      <div className="space-y-7">
+        <section className="app-card overflow-hidden">
         <div className="grid gap-0 lg:grid-cols-[0.92fr_1.08fr]">
           <div className="bg-[linear-gradient(135deg,rgba(221,243,229,0.95),rgba(245,236,215,0.72))] p-6">
             <div className="space-y-4 rounded-[1.6rem] bg-white/78 p-5 backdrop-blur">
@@ -187,8 +342,16 @@ export default function DashboardPage() {
             <div className="grid gap-3 p-6 sm:grid-cols-3">
               <div className="sm:col-span-3">
                 <div className="app-card-soft flex items-center gap-4 p-4">
-                  <div className="flex h-20 w-20 items-center justify-center rounded-[1.2rem] bg-white text-2xl font-semibold text-[rgb(var(--app-ink))]">
-                    {pet.nickname.slice(0, 2).toUpperCase()}
+                  <div className="flex h-20 w-20 items-center justify-center overflow-hidden rounded-[1.2rem] bg-white text-2xl font-semibold text-[rgb(var(--app-ink))]">
+                    {pet.image_url ? (
+                      <img
+                        src={pet.image_url}
+                        alt={pet.nickname}
+                        className="h-full w-full object-cover"
+                      />
+                    ) : (
+                      pet.nickname.slice(0, 2).toUpperCase()
+                    )}
                   </div>
                   <div className="min-w-0">
                     <div className="text-xs uppercase tracking-[0.16em] app-muted">Pet companion</div>
@@ -247,9 +410,9 @@ export default function DashboardPage() {
             </div>
           )}
         </div>
-      </section>
+        </section>
 
-      <section className="app-card p-6">
+        <section className="app-card p-6">
         <div className="mb-5 flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
           <div className="space-y-1">
             <div className="app-chip">Carbon journey</div>
@@ -332,7 +495,8 @@ export default function DashboardPage() {
             </div>
           </>
         )}
-      </section>
-    </div>
+        </section>
+      </div>
+    </>
   );
 }
