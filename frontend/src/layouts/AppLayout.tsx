@@ -28,7 +28,14 @@ export default function AppLayout() {
     document.documentElement.dataset.accessibilityMode = accessibilitySettings.enabled
       ? "true"
       : "false";
-    document.documentElement.dataset.accessibilityBoldText = accessibilitySettings.boldText
+    document.documentElement.dataset.accessibilityBoldText =
+      accessibilitySettings.enabled && accessibilitySettings.boldText
+      ? "true"
+      : "false";
+    document.documentElement.dataset.reducedMotion = accessibilitySettings.reducedMotion
+      ? "true"
+      : "false";
+    document.documentElement.dataset.compactLayout = accessibilitySettings.compactLayout
       ? "true"
       : "false";
   }, [accessibilitySettings]);

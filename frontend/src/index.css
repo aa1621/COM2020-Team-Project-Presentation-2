@@ -132,6 +132,19 @@
     font-weight: 600;
   }
 
+  html[data-reduced-motion="true"] {
+    scroll-behavior: auto;
+  }
+
+  html[data-reduced-motion="true"] *,
+  html[data-reduced-motion="true"] *::before,
+  html[data-reduced-motion="true"] *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+
   @media (prefers-reduced-motion: reduce) {
     html {
       scroll-behavior: auto;
@@ -265,5 +278,25 @@
   html[data-accessibility-mode="true"] .app-chip {
     background: rgb(var(--app-brand));
     color: white;
+  }
+
+  html[data-compact-layout="true"] .app-card {
+    @apply rounded-[1.4rem];
+  }
+
+  html[data-compact-layout="true"] .app-card-soft,
+  html[data-compact-layout="true"] .app-stat {
+    @apply rounded-[1.1rem];
+  }
+
+  html[data-compact-layout="true"] .app-chip {
+    @apply px-2.5 py-1 text-[10px];
+  }
+
+  html[data-compact-layout="true"] .app-input,
+  html[data-compact-layout="true"] .app-button,
+  html[data-compact-layout="true"] .app-button-primary,
+  html[data-compact-layout="true"] .app-button-secondary {
+    @apply px-3 py-2.5 text-[13px];
   }
 }

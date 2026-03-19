@@ -4,11 +4,15 @@ const ACCESSIBILITY_SETTINGS_EVENT = "campus-carbon-accessibility-settings-chang
 export type AccessibilitySettings = {
   enabled: boolean;
   boldText: boolean;
+  reducedMotion: boolean;
+  compactLayout: boolean;
 };
 
 const defaultAccessibilitySettings: AccessibilitySettings = {
   enabled: false,
   boldText: false,
+  reducedMotion: false,
+  compactLayout: false,
 };
 
 function normalizeAccessibilitySettings(value: unknown): AccessibilitySettings {
@@ -18,6 +22,8 @@ function normalizeAccessibilitySettings(value: unknown): AccessibilitySettings {
   return {
     enabled: Boolean(settings.enabled),
     boldText: Boolean(settings.boldText),
+    reducedMotion: Boolean(settings.reducedMotion),
+    compactLayout: Boolean(settings.compactLayout),
   };
 }
 
