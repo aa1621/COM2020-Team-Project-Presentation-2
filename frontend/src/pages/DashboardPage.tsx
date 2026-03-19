@@ -1,8 +1,10 @@
 import { useEffect, useMemo, useRef, useState } from "react";
+import { Link } from "react-router-dom";
 import { apiFetch } from "../api/client";
 import { getCoinBalance } from "../api/coins";
 import { getActionLogs } from "../api/actionLogs";
 import { useAuth } from "../auth/AuthProvider";
+import PageShell from "../components/PageShell";
 import { createPet, getMyPet, getPetCatalog } from "../api/pets";
 import type { ActionType, GetActionTypesResponse, Pet, PetCatalogEntry } from "../api/types";
 
@@ -327,6 +329,15 @@ export default function DashboardPage() {
     () => totalsByDate.reduce((sum, d) => sum + d.total, 0),
     [totalsByDate]
   );
+  const activeDays = useMemo(
+    () => totalsByDate.filter((entry) => entry.total > 0).length,
+    [totalsByDate]
+  );
+  const averageDailyKg = useMemo(
+    () => (dateKeys.length > 0 ? totalKg / dateKeys.length : 0),
+    [dateKeys.length, totalKg]
+  );
+  const hasChartData = totalKg > 0;
 
   async function handleCreatePetFromDashboard() {
     const nickname = petSetupNickname.trim();
@@ -370,6 +381,10 @@ export default function DashboardPage() {
         />
       ) : null}
 
+      <PageShell
+        title="Dashboard"
+        subtitle="Your main hub for carbon progress, companion status, and weekly momentum."
+      >
       <div className="space-y-7">
         <section className="app-card overflow-hidden">
         <div className="grid gap-0 lg:grid-cols-[0.92fr_1.08fr]">
@@ -385,7 +400,7 @@ export default function DashboardPage() {
                   weekly consistency.
                 </p>
               </div>
-              <div className="grid gap-3 sm:grid-cols-2">
+              <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
                 <div className="app-stat">
                   <div className="text-xs uppercase tracking-wide app-muted">Current focus</div>
                   <div className="mt-1 text-base font-semibold text-[rgb(var(--app-ink))]">
@@ -398,6 +413,26 @@ export default function DashboardPage() {
                     Last {dateRange} days
                   </div>
                 </div>
+                <div className="app-stat">
+                  <div className="text-xs uppercase tracking-wide app-muted">Actions logged</div>
+                  <div className="mt-1 text-base font-semibold text-[rgb(var(--app-ink))]">
+                    {filteredLogs.length}
+                  </div>
+                </div>
+                <div className="app-stat">
+                  <div className="text-xs uppercase tracking-wide app-muted">Active days</div>
+                  <div className="mt-1 text-base font-semibold text-[rgb(var(--app-ink))]">
+                    {activeDays} / {dateKeys.length}
+                  </div>
+                </div>
+              </div>
+              <div className="flex flex-wrap gap-2">
+                <Link to="/app/log-action" className="app-button-primary">
+                  Log new action
+                </Link>
+                <Link to="/app/challenges" className="app-button-secondary">
+                  View challenges
+                </Link>
               </div>
             </div>
           </div>
@@ -423,6 +458,9 @@ export default function DashboardPage() {
                       {pet.nickname}
                     </div>
                     <div className="text-sm app-muted">{pet.pet_type} companion</div>
+                    <Link to="/app/pets" className="mt-2 inline-flex text-sm font-medium text-[rgb(var(--app-brand))] underline-offset-4 hover:underline">
+                      Open pet hub
+                    </Link>
                   </div>
                 </div>
               </div>
@@ -462,13 +500,20 @@ export default function DashboardPage() {
                   />
                 </div>
               </div>
+              <div className="app-stat">
+                <div className="text-xs uppercase tracking-wide app-muted">Average daily impact</div>
+                <div className="mt-1 text-2xl font-semibold text-[rgb(var(--app-ink))]">
+                  {averageDailyKg.toFixed(2)}
+                </div>
+                <div className="mt-1 text-xs app-muted">kg CO2e over the selected window</div>
+              </div>
             </div>
           ) : (
             <div className="p-6">
               <div className="app-card-soft p-5">
-                <div className="text-sm font-semibold text-[rgb(var(--app-ink))]">Pet profile unavailable</div>
+                <div className="text-sm font-semibold text-[rgb(var(--app-ink))]">Companion setup in progress</div>
                 <div className="mt-2 text-sm app-muted">
-                  Create a companion in the pet hub to see its status and coin balance here.
+                  Finish choosing your companion to unlock pet stats, coin tracking, and dashboard boosts.
                 </div>
               </div>
             </div>
@@ -514,9 +559,40 @@ export default function DashboardPage() {
           <div className="text-sm app-muted">Loading chart...</div>
         ) : error ? (
           <div className="rounded-2xl bg-red-50 p-4 text-sm text-red-700">{error}</div>
+        ) : !hasChartData ? (
+          <div className="rounded-[1.5rem] border border-dashed border-[rgb(var(--app-line))] bg-[rgb(var(--app-soft))]/60 p-6">
+            <div className="app-chip">No activity yet</div>
+            <h3 className="mt-4 text-xl font-semibold text-[rgb(var(--app-ink))]">
+              Start logging actions to build your impact timeline
+            </h3>
+            <p className="mt-2 max-w-2xl text-sm app-muted">
+              Once you add a few actions, this chart will show your estimated CO2e trend across the selected date range.
+            </p>
+            <div className="mt-5 flex flex-wrap gap-2">
+              <Link to="/app/log-action" className="app-button-primary">
+                Log your first action
+              </Link>
+              <Link to="/app/challenges" className="app-button-secondary">
+                Browse challenges
+              </Link>
+            </div>
+          </div>
         ) : (
           <>
             <div className="rounded-[1.5rem] bg-[rgb(var(--app-soft))] p-4">
+              <div className="mb-4 flex flex-wrap items-end justify-between gap-3">
+                <div>
+                  <div className="text-sm font-semibold text-[rgb(var(--app-ink))]">
+                    Daily carbon trend
+                  </div>
+                  <div className="text-xs app-muted">
+                    Bars show estimated impact by day for the selected filter.
+                  </div>
+                </div>
+                <div className="rounded-full bg-white px-3 py-1 text-xs font-medium text-[rgb(var(--app-ink))] shadow-sm">
+                  Peak day: {maxTotal.toFixed(2)} kg CO2e
+                </div>
+              </div>
               <div className="flex h-52 items-end gap-2">
                 {totalsByDate.map((d) => {
                   const height = maxTotal > 0 ? Math.max(6, (d.total / maxTotal) * 100) : 6;
@@ -552,6 +628,12 @@ export default function DashboardPage() {
                 </div>
               </div>
               <div className="app-stat">
+                <div className="text-xs uppercase tracking-wide app-muted">Average per day</div>
+                <div className="mt-1 text-xl font-semibold text-[rgb(var(--app-ink))]">
+                  {averageDailyKg.toFixed(3)} kg CO2e
+                </div>
+              </div>
+              <div className="app-stat">
                 <div className="text-xs uppercase tracking-wide app-muted">Confidence</div>
                 <div className="mt-1 text-xl font-semibold text-emerald-700">Medium</div>
                 <div className="mt-1 text-xs app-muted">Estimates can vary by context.</div>
@@ -561,6 +643,7 @@ export default function DashboardPage() {
         )}
         </section>
       </div>
+      </PageShell>
     </>
   );
 }
