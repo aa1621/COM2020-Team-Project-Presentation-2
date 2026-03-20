@@ -1,4 +1,5 @@
 import { supabaseUser } from "../lib/supabaseClient.js";
+import { checkAndAwardBadges } from "../services/badges.service.js";
 import { safeParseJson } from "../services/challengeRules.service.js";
 import { calculatePoints } from "../services/scoring.service.js";
 
@@ -171,6 +172,8 @@ export async function createSubmission(req, res, next) {
 
             if (flagErr) return next(flagErr);
         }
+
+        if (status === "approved") await checkAndAwardBadges(demoUserId);
 
         return res.status(201).json({
             submission: inserted,

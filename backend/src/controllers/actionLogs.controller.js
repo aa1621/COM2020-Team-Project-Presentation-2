@@ -1,4 +1,5 @@
-import { supabaseUser } from '../lib/supabaseClient.js';
+import { supabaseAdmin, supabaseUser } from '../lib/supabaseClient.js';
+import { checkAndAwardBadges } from '../services/badges.service.js';
 import { calculateCarbonFromFactor } from '../services/carbon.service.js';
 
 const DEMO_USER_ID =
@@ -80,13 +81,16 @@ export async function createActionLog(req, res, next) {
             score: Math.round(calc.estimateKgCO2e * 10),
         };
 
-        const {data: inserted, error: insErr} = await supabaseUser
+        const {data: inserted, error: insErr} = await supabaseAdmin
             .from("action_logs")
             .insert(insertRow)
             .select("*")
             .single();
 
         if (insErr) return next(insErr);
+
+        await updateStreak(demoUserId);
+        await checkAndAwardBadges(demoUserId);
 
         return res.status(201).json({
             log: inserted,
@@ -130,4 +134,34 @@ export async function listActionLogs(req, res, next) {
     } catch (err) {
         next(err);
     }
+}
+
+async function updateStreak(userId) {
+    const today = new Date().toISOString().split("T")[0];
+
+    const {data: pet, error} = await supabaseUser
+        .from("pets")
+        .select("pet_id, streak, last_active_date")
+        .eq("user_id", userId)
+        .maybeSingle();
+
+    if (error || !pet) return;
+
+    const last = pet.last_active_date;
+
+    if (last === today) return;
+
+    const yesterday = new Date();
+    yesterday.setDate(yesterday.getDate() - 1);
+    const yesterdayStr = yesterday.toISOString().split("T")[0];
+
+    const newStreak = last === yesterdayStr ? pet.streak + 1 : 1;
+
+    await supabaseAdmin
+        .from("pets")
+        .update({
+            streak: newStreak,
+            last_active_date: today,
+        })
+        .eq("pet_id", pet.pet_id);
 }

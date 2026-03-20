@@ -1,4 +1,5 @@
 import { supabaseAdmin } from "../lib/supabaseClient.js";
+import { checkAndAwardBadges } from "../services/badges.service.js";
 
 // TEMPORARY GUARD (because we haven't set up authorisation yet)
 function requireModerator(req, res) {
@@ -96,6 +97,8 @@ export async function decideSubmission(req, res, next) {
             .single();
 
         if (updErr) return next(updErr);
+
+        if (newStatus === "approved") await checkAndAwardBadges(submission.user_id);
 
         res.json({submission: updated, moderationDecision: decisionRow});
     } catch (err) {
