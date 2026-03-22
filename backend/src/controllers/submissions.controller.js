@@ -1,4 +1,4 @@
-import { supabaseUser } from "../lib/supabaseClient.js";
+import { supabaseAdmin, supabaseUser } from "../lib/supabaseClient.js";
 import { checkAndAwardBadges } from "../services/badges.service.js";
 import { safeParseJson } from "../services/challengeRules.service.js";
 import { calculatePoints } from "../services/scoring.service.js";
@@ -32,11 +32,11 @@ export async function createSubmission(req, res, next) {
         const evidence = req.body?.evidence ?? null;
 
         const totalCO2eFromBody = req.body?.total_co2e;
-        const logIds = Array.isArray(req.body?.log_ids) ? req.body.log_ids : null;
+        //const logIds = Array.isArray(req.body?.log_ids) ? req.body.log_ids : null;
 
-        if ((totalCO2eFromBody == null || Number.isNaN(Number(totalCO2eFromBody))) && ! logIds) {
+        if (totalCO2eFromBody == null || Number.isNaN(Number(totalCO2eFromBody))) {
             return res.status(400).json({
-                error: "Provide either total_co2e (number) or log_ids (array of uuids).",
+                error: "total_co2e is required and must be a number",
             });
         }
         
@@ -82,7 +82,7 @@ export async function createSubmission(req, res, next) {
             });
         }
 
-        let totalCO2eKg = 0;
+        /* let totalCO2eKg = 0;
 
         if (logIds) {
             const {data: logs, error: logsErr} = await supabaseUser
@@ -104,13 +104,14 @@ export async function createSubmission(req, res, next) {
 
         if (!(totalCO2eKg > 0)) {
             return res.status(400).json({error: "total_co2e must be a positive number"});
-        }
+        } */
 
         const flags = [];
 
         const MAX_CO2E_KG_PER_SUBMISSION = 200;
         const WINDOW_SECONDS = 120;
         const MAX_SUBMISSIONS_IN_WINDOW = 3;
+        const QUANTITY_SPIKE_MULTIPLIER = 5; // if quantity is >5x the users average
 
         const since = new Date(Date.now() - WINDOW_SECONDS * 1000).toISOString();
 
@@ -122,12 +123,16 @@ export async function createSubmission(req, res, next) {
 
         if (recentErr) return next(recentErr);
 
+
+        // UNREALISTIC FREQUENCY FLAG
         if ((recent ?? []).length >= MAX_SUBMISSIONS_IN_WINDOW) {
             flags.push({
                 flag_type: "rate_limit_submission",
                 rule_triggered: `>=${MAX_SUBMISSIONS_IN_WINDOW} submissions within ${WINDOW_SECONDS}s`,
             });
         }
+
+        // UNREALISTIC QUANTITY FLAG
         if (totalCO2eKg > MAX_CO2E_KG_PER_SUBMISSION) {
             flags.push({
                 flag_type: "impossible_value",
@@ -135,7 +140,42 @@ export async function createSubmission(req, res, next) {
             });
         }
 
+        // DUPLICATE CHALLENGE SUBMISSION
+        const {data: dupCheck, error: dupErr} = await supabaseUser
+            .from("submissions")
+            .select("submission_id, status")
+            .eq("user_id", demoUserId)
+            .eq("challenge_id", challengeId)
+            .in("status", ["approved", "pending_review"])
+            .limit(1);
 
+        if (dupErr) return next(dupErr);
+
+        if ((dupCheck ?? []).length > 0) {
+            flags.push({
+                flag_type: "duplicate_challenge_submission",
+                rule_triggered: `User already has a ${dupCheck[0].status} submission for challenge ${challengeId}`,
+            });
+        }
+
+        // QUANTITY SPIKE VS PERSONAL AVERAGE
+        const {data: history, error: histErr} = await supabaseUser
+            .from("submissions")
+            .select("points")
+            .eq("user_id", demoUserId)
+            .eq("status", "approved");
+
+        if (histErr) return next(histErr);
+
+        if ((history ?? []).length >= 3) {
+            const avgCO2e = history.reduce((sum, s) => sum + Number(s.points || 0), 0) / history.length;
+            if (avgCO2e > 0 && totalCO2eKg > avgCO2e * QUANTITY_SPIKE_MULTIPLIER) {
+                flags.push({
+                    flag_type: "quantity_spike",
+                    rule_triggered: `Submissions CO2e (${totalCO2eKg.toFixed(2)}kg) is ${QUANTITY_SPIKE_MULTIPLIER}x above user average (${avgCO2e.toFixed(2)}kg)`,
+                });
+            }
+        }
 
         const points = calculatePoints(totalCO2eKg, scoringObj);
         let status = evidenceRequired ? "pending_review" : "approved";
@@ -166,7 +206,7 @@ export async function createSubmission(req, res, next) {
                 status: "open",
             }));
 
-            const {error: flagErr} = await supabaseUser
+            const {error: flagErr} = await supabaseAdmin
                 .from("anti_gaming_flags")
                 .insert(rows);
 

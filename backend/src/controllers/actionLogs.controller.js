@@ -71,6 +71,55 @@ export async function createActionLog(req, res, next) {
         const calc = calculateCarbonFromFactor(quantity, factor);
         if (calc.error) return res.status(400).json({error: calc.error});
 
+        // ANTI GAMING
+        const today = new Date().toISOString().slice(0, 10);
+        const LOG_RATE_WINDOW_SECONDS = 60;
+        const MAX_LOGS_IN_WINDOW = 10;
+        const MAX_SAME_ACTION_PER_DAY = 5;
+        const MAX_CO2E_PER_LOG = 100;
+
+        // UNREALISTIC LOGGING RATE
+        const since = new Date(Date.now() - LOG_RATE_WINDOW_SECONDS * 1000).toISOString();
+
+        const {data: recentLogs, error: rateErr} = await supabaseUser
+            .from("action_logs")
+            .select("log_id")
+            .eq("user_id", demoUserId)
+            .gte("created_at", since);
+
+        if (rateErr) return next(rateErr);
+
+        if ((recentLogs ?? []).length >= MAX_LOGS_IN_WINDOW) {
+            return res.status(429).json({
+                error: `You are logging too quickly. Maximum ${MAX_LOGS_IN_WINDOW} logs per ${LOG_RATE_WINDOW_SECONDS} seconds.`,
+            });
+        }
+
+        // SAME ACTION TYPE LOGGED TOO MANY TIMES
+        const {data: todayLogs, error: todayErr} = await supabaseUser
+            .from("action_logs")
+            .select("log_id")
+            .eq("user_id", demoUserId)
+            .eq("action_type_id", actionType.action_type_id)
+            .eq("action_date", today);
+
+        if (todayErr) return next(todayErr);
+
+        if ((todayLogs ?? []).length >= MAX_SAME_ACTION_PER_DAY) {
+            return res.status(400).json({
+                error: `You have already logged "${actionType.name}" ${MAX_SAME_ACTION_PER_DAY} times today. Try a different action.`,
+            });
+        }
+
+        // UNREALISTIC CO2E
+        if (calc.estimateKgCO2e > MAX_CO2E_PER_LOG) {
+            return res.status(400).json({
+                error: `Caluclated CO2e (${calc.estimateKgCO2e.toFixed(2)}kg) exceeds the maximum allowed per log (${MAX_CO2E_PER_LOG}kg). Please check your quantity.`,
+            });
+        }
+
+        // INSERT LOG INTO DATABASE
+        
         const insertRow = {
             user_id: demoUserId,
             action_type_id: actionType.action_type_id,
