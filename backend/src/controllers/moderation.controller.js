@@ -1,15 +1,6 @@
 import { supabaseAdmin } from "../lib/supabaseClient.js";
 import { checkAndAwardBadges } from "../services/badges.service.js";
-
-// TEMPORARY GUARD (because we haven't set up authorisation yet)
-function requireModerator(req, res) {
-    const role = req.header("x-user-role");
-    if (role !== "moderator" && role !== "maintainer") {
-        res.status(403).json({error: 'Forbidden. Set header "x-user-role: moderator" for dev.'});
-        return false;
-    }
-    return true;
-}
+import { requireModerator } from "../services/requireModerator.service.js";
 
 export async function getModerationQueue(req, res, next) {
     try {

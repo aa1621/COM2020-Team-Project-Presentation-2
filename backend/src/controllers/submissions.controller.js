@@ -39,6 +39,8 @@ export async function createSubmission(req, res, next) {
                 error: "total_co2e is required and must be a number",
             });
         }
+
+        const totalCO2eKg = Number(totalCO2eFromBody);
         
         const { data: challenge, error: chError} = await supabaseUser
             .from("challenges")
@@ -190,7 +192,7 @@ export async function createSubmission(req, res, next) {
             evidence,
         };
 
-        const {data: inserted, error: insErr} = await supabaseUser
+        const {data: inserted, error: insErr} = await supabaseAdmin
             .from("submissions")
             .insert(insertRow)
             .select("*")

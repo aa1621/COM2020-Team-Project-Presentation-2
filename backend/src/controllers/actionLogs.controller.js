@@ -114,17 +114,17 @@ export async function createActionLog(req, res, next) {
         // UNREALISTIC CO2E
         if (calc.estimateKgCO2e > MAX_CO2E_PER_LOG) {
             return res.status(400).json({
-                error: `Caluclated CO2e (${calc.estimateKgCO2e.toFixed(2)}kg) exceeds the maximum allowed per log (${MAX_CO2E_PER_LOG}kg). Please check your quantity.`,
+                error: `Calculated CO2e (${calc.estimateKgCO2e.toFixed(2)}kg) exceeds the maximum allowed per log (${MAX_CO2E_PER_LOG}kg). Please check your quantity.`,
             });
         }
 
         // INSERT LOG INTO DATABASE
-        
+
         const insertRow = {
             user_id: demoUserId,
             action_type_id: actionType.action_type_id,
             quantity: Number(quantity),
-            action_date: new Date().toISOString().slice(0, 10),
+            action_date: today,
             evidence_required: false,
             calculated_co2e: calc.estimateKgCO2e,
             score: Math.round(calc.estimateKgCO2e * 10),
