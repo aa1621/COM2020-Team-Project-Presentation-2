@@ -1,4 +1,4 @@
-import { supabaseAdmin } from '../lib/supabaseClient.js';
+import { supabaseAdmin, supabaseUser } from '../lib/supabaseClient.js';
 import { checkAndAwardBadges } from '../services/badges.service.js';
 import { calculateCarbonFromFactor } from '../services/carbon.service.js';
 import { awardFirstLogOfDay, awardStreakMilestone } from '../services/coins.service.js';
@@ -141,6 +141,7 @@ export async function createActionLog(req, res, next) {
         if (insErr) return next(insErr);
 
         const newStreak = await updateStreak(userId);
+        await healPet(userId);
         await awardFirstLogOfDay(userId, inserted.log_id);
         await awardStreakMilestone(userId, newStreak);
         await checkAndAwardBadges(userId);
@@ -219,4 +220,23 @@ async function updateStreak(userId) {
         .eq("pet_id", pet.pet_id);
     
         return newStreak;
+}
+
+async function healPet(userId) {
+    const { data: pet } = await supabaseAdmin
+        .from("pets")
+        .select("pet_id, health, happiness, energy, status")
+        .eq("user_id", userId)
+        .maybeSingle();
+
+    if (!pet || pet.status === "needs_revive") return;
+
+    await supabaseAdmin
+        .from("pets")
+        .update({
+            health:    Math.min(100, pet.health    + 10),
+            happiness: Math.min(100, pet.happiness + 10),
+            energy:    Math.min(100, pet.energy    + 15),
+        })
+        .eq("pet_id", pet.pet_id);
 }

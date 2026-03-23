@@ -1,6 +1,7 @@
 import {supabaseAdmin, supabaseUser } from "../lib/supabaseClient.js";
 import { checkAndAwardBadges } from "../services/badges.service.js";
 import { deductReviveCost, COIN_REWARDS } from "../services/coins.service.js";
+import { applyPetDecline } from "../services/petDecline.service.js";
 
 // const DEMO_USER_ID = 
 //     process.env.DEMO_USER_ID || "c1aae9c3-5157-4a26-a7b3-28d8905cfef0";
@@ -126,7 +127,9 @@ export async function getMyPet(req, res, next) {
         if (error) return next(error);
         if (!pet) return res.status(404).json({error: "No pet found for this user"});
 
-        return res.status(200).json({pet});
+        const updatedPet = await applyPetDecline(pet);
+
+        return res.status(200).json({pet: updatedPet});
     } catch (err) {
         next(err);
     }
