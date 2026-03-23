@@ -1,4 +1,4 @@
-import { supabaseAdmin, supabaseUser } from '../lib/supabaseClient.js';
+import { supabaseAdmin } from '../lib/supabaseClient.js';
 import { checkAndAwardBadges } from '../services/badges.service.js';
 import { calculateCarbonFromFactor } from '../services/carbon.service.js';
 import { awardFirstLogOfDay, awardStreakMilestone } from '../services/coins.service.js';
@@ -31,7 +31,7 @@ export async function createActionLog(req, res, next) {
             return res.status(400).json({error: "Missing action_type_key"});
         }
 
-        const {data: actionType, error: atErr} = await supabaseUser
+        const {data: actionType, error: atErr} = await supabaseAdmin
             .from("action_types")
             .select(`
                 action_type_id,
@@ -83,7 +83,7 @@ export async function createActionLog(req, res, next) {
         // UNREALISTIC LOGGING RATE
         const since = new Date(Date.now() - LOG_RATE_WINDOW_SECONDS * 1000).toISOString();
 
-        const {data: recentLogs, error: rateErr} = await supabaseUser
+        const {data: recentLogs, error: rateErr} = await supabaseAdmin
             .from("action_logs")
             .select("log_id")
             .eq("user_id", userId)
@@ -98,7 +98,7 @@ export async function createActionLog(req, res, next) {
         }
 
         // SAME ACTION TYPE LOGGED TOO MANY TIMES
-        const {data: todayLogs, error: todayErr} = await supabaseUser
+        const {data: todayLogs, error: todayErr} = await supabaseAdmin
             .from("action_logs")
             .select("log_id")
             .eq("user_id", userId)
@@ -171,7 +171,7 @@ export async function listActionLogs(req, res, next) {
 
         const { start, end } = req.query;
 
-        let query = supabaseUser
+        let query = supabaseAdmin
             .from("action_logs")
             .select("log_id, user_id, action_type_id, quantity, action_date, calculated_co2e, score")
             .eq("user_id", userId)
@@ -192,7 +192,7 @@ export async function listActionLogs(req, res, next) {
 async function updateStreak(userId) {
     const today = new Date().toISOString().split("T")[0];
 
-    const {data: pet, error} = await supabaseUser
+    const {data: pet, error} = await supabaseAdmin
         .from("pets")
         .select("pet_id, streak, last_active_date")
         .eq("user_id", userId)
