@@ -16,7 +16,7 @@ export async function getActionTypes(req, res, next) {
                 name,
                 unit,
                 default_factor_id,
-                defaut_factor:conversion_factors!action_types_default_factor_fk (
+                default_factor:conversion_factors!action_types_default_factor_fk (
                     factor_id,
                     source,
                     unit_in,
