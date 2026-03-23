@@ -30,17 +30,29 @@ function emitAuthChange() {
   window.dispatchEvent(new CustomEvent(AUTH_EVENT));
 }
 
+function normalizeAuthUser(user: AuthUser): AuthUser {
+  return {
+    ...user,
+    email: user.email ?? null,
+    group_id: user.group_id ?? null,
+  };
+}
+
 function parseStoredAuthState(raw: string): AuthState | null {
   try {
     const parsed = JSON.parse(raw) as AuthState | AuthUser;
     if (!parsed || typeof parsed !== "object") return null;
 
     if ("user" in parsed) {
-      return parsed.user ? (parsed as AuthState) : null;
+      if (!parsed.user) return null;
+      return {
+        ...(parsed as AuthState),
+        user: normalizeAuthUser(parsed.user as AuthUser),
+      };
     }
 
     return {
-      user: parsed as AuthUser,
+      user: normalizeAuthUser(parsed as AuthUser),
       session: null,
     };
   } catch {
@@ -50,7 +62,13 @@ function parseStoredAuthState(raw: string): AuthState | null {
 
 export function setAuthState(state: AuthState) {
   if (!canUseBrowserStorage()) return;
-  localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
+  localStorage.setItem(
+    STORAGE_KEY,
+    JSON.stringify({
+      ...state,
+      user: normalizeAuthUser(state.user),
+    })
+  );
   emitAuthChange();
 }
 

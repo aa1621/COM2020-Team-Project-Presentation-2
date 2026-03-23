@@ -13,14 +13,14 @@ export type AuthResponse = {
     display_name: string | null;
     role: string | null;
     email?: string | null;
-    group_id: string | null;
+    group_id?: string | null;
   };
   session: AuthSessionPayload | null;
   message?: string;
 };
 
 export type LoginRequest = {
-  email: string;
+  identifier: string;
   password: string;
 };
 

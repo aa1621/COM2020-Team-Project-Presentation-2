@@ -1,4 +1,4 @@
-import { getAccessToken } from "../auth/authSession";
+import { clearAuthUser, getAccessToken } from "../auth/authSession";
 
 const API_BASE_URL =
   import.meta.env.VITE_API_BASE_URL || "http://localhost:8000";
@@ -6,6 +6,21 @@ const API_BASE_URL =
 type ApiFetchOptions = RequestInit & {
   skipAuth?: boolean;
 };
+
+function handleUnauthorizedResponse() {
+  clearAuthUser();
+
+  if (typeof window === "undefined") return;
+  if (window.location.pathname === "/login") return;
+
+  const next =
+    window.location.pathname +
+    window.location.search +
+    window.location.hash;
+  const target = `/login?next=${encodeURIComponent(next)}`;
+
+  window.location.assign(target);
+}
 
 export async function apiFetch<T>(
   path: string,
@@ -26,6 +41,10 @@ export async function apiFetch<T>(
   const data = await res.json().catch(() => null);
 
   if (!res.ok) {
+    if (res.status === 401 && !skipAuth) {
+      handleUnauthorizedResponse();
+    }
+
     const msg =
       (data && (data.error || data.message)) ||
       `Request failed: ${res.status}`;

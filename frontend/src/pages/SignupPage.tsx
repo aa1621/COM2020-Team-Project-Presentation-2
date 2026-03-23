@@ -47,11 +47,24 @@ export default function SignupPage() {
         password,
       });
 
-      setAuthState({
-        user: res.user,
-        session: res.session,
+      if (res.session?.access_token) {
+        setAuthState({
+          user: {
+            ...res.user,
+            group_id: res.user.group_id ?? null,
+          },
+          session: res.session,
+        });
+        navigate("/app/dashboard");
+        return;
+      }
+
+      navigate("/login", {
+        replace: true,
+        state: {
+          message: "Account created. Please log in with your new username or email.",
+        },
       });
-      navigate("/app/dashboard");
     } catch (err) {
       setError(err instanceof Error ? err.message : "Could not create account.");
     } finally {
