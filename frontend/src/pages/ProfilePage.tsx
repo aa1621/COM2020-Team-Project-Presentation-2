@@ -104,6 +104,7 @@ export default function ProfilePage() {
     accessibilitySettings.boldText,
     accessibilitySettings.reducedMotion,
     accessibilitySettings.compactLayout,
+    accessibilitySettings.darkMode,
   ].filter(Boolean).length;
   const earnedBadgeIds = useMemo(
     () => new Set(earnedBadges.map((entry) => entry.badges.badge_id)),
@@ -250,6 +251,18 @@ export default function ProfilePage() {
                 </p>
 
                 <div className="mt-5 space-y-3">
+                  <SettingToggle
+                    id="profile-dark-mode"
+                    title="Dark mode"
+                    description="Switches the app to a darker colour palette for lower-light browsing."
+                    checked={accessibilitySettings.darkMode}
+                    onChange={(checked) =>
+                      setAccessibilitySettings({
+                        ...accessibilitySettings,
+                        darkMode: checked,
+                      })
+                    }
+                  />
                   <SettingToggle
                     id="profile-reduced-motion"
                     title="Reduced motion"

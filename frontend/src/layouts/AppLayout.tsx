@@ -28,6 +28,9 @@ export default function AppLayout() {
     document.documentElement.dataset.accessibilityMode = accessibilitySettings.enabled
       ? "true"
       : "false";
+    document.documentElement.dataset.darkMode = accessibilitySettings.darkMode
+      ? "true"
+      : "false";
     document.documentElement.dataset.accessibilityBoldText =
       accessibilitySettings.enabled && accessibilitySettings.boldText
       ? "true"
@@ -38,6 +41,9 @@ export default function AppLayout() {
     document.documentElement.dataset.compactLayout = accessibilitySettings.compactLayout
       ? "true"
       : "false";
+    document.documentElement.style.colorScheme = accessibilitySettings.darkMode
+      ? "dark"
+      : "light";
   }, [accessibilitySettings]);
 
   useEffect(

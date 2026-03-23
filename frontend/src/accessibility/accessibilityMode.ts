@@ -6,6 +6,7 @@ export type AccessibilitySettings = {
   boldText: boolean;
   reducedMotion: boolean;
   compactLayout: boolean;
+  darkMode: boolean;
 };
 
 const defaultAccessibilitySettings: AccessibilitySettings = {
@@ -13,6 +14,7 @@ const defaultAccessibilitySettings: AccessibilitySettings = {
   boldText: false,
   reducedMotion: false,
   compactLayout: false,
+  darkMode: false,
 };
 
 function normalizeAccessibilitySettings(value: unknown): AccessibilitySettings {
@@ -24,6 +26,7 @@ function normalizeAccessibilitySettings(value: unknown): AccessibilitySettings {
     boldText: Boolean(settings.boldText),
     reducedMotion: Boolean(settings.reducedMotion),
     compactLayout: Boolean(settings.compactLayout),
+    darkMode: Boolean(settings.darkMode),
   };
 }
 

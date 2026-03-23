@@ -224,9 +224,9 @@ export default function Sidebar({
               onClick={handleLogout}
               className="w-full rounded-2xl border px-4 py-3 text-sm font-medium transition hover:bg-red-100"
               style={{
-                borderColor: "rgb(254 202 202)",
+                borderColor: "rgb(var(--app-danger-line))",
                 backgroundColor: "rgb(var(--app-danger-soft))",
-                color: "rgb(185 28 28)",
+                color: "rgb(var(--app-danger))",
               }}
             >
               Log out
@@ -291,7 +291,7 @@ export default function Sidebar({
               aria-label="Log out"
               className="flex h-10 w-10 items-center justify-center rounded-2xl border text-[rgb(185_28_28)] transition hover:bg-red-100"
               style={{
-                borderColor: "rgb(254 202 202)",
+                borderColor: "rgb(var(--app-danger-line))",
                 backgroundColor: "rgb(var(--app-danger-soft))",
               }}
             >

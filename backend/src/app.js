@@ -3,15 +3,11 @@ import cors from 'cors';
 
 const app = express();
 
-<<<<<<< HEAD
 function normalizeOrigin(value) {
     return value.trim().replace(/\/+$/, "");
 }
 
-const allowedOrigins = (process.env.CORS_ORIGIN || "http://localhost:5173/")
-=======
 const allowedOrigins = (process.env.CORS_ORIGIN || "http://localhost:5173")
->>>>>>> 6275a0b8fa4b197b4407f945a63ce4fbe5e96e86
     .split(",")
     .map(normalizeOrigin)
     .filter(Boolean);
