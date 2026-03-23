@@ -71,11 +71,28 @@ export async function register(req, res, next) {
 
 export async function login(req, res, next) {
     try {
-        const email = (req.body?.email || "").trim().toLowerCase();
+        const identifier = (req.body?.identifier || "").trim().toLowerCase();
         const password = req.body?.password || "";
 
-        if (!email || !password) {
-            return res.status(400).json({error: "email and password are required"});
+        if (!identifier || !password) {
+            return res.status(400).json({error: "username or email and password are required"});
+        }
+
+        let email;
+
+        if (identifier.includes("@")) {
+            email = identifier;
+        } else {
+            const {data: user, error: lookupErr} = await supabaseAdmin
+                .from("users")
+                .select("email")
+                .eq("username", identifier)
+                .maybeSingle();
+
+            if (lookupErr) return next(lookupErr);
+            if (!user) return res.status(401).json({error: "Invalid username or password"});
+
+            email = user.email;
         }
 
         const {data, error} = await supabaseAuth.auth.signInWithPassword({
