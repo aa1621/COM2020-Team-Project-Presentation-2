@@ -61,6 +61,10 @@ function formatShortDate(date: string | null) {
   });
 }
 
+function formatLeaderboardPoints(value: number) {
+  return Math.round(value);
+}
+
 function PetSetupModal({
   nickname,
   onChangeNickname,
@@ -725,7 +729,7 @@ export default function DashboardPage() {
                   <div className="text-right">
                     <div className="text-xs uppercase tracking-wide app-muted">Points</div>
                     <div className="text-lg font-semibold text-[rgb(var(--app-ink))]">
-                      {leaderboardContext.leader.points}
+                      {formatLeaderboardPoints(leaderboardContext.leader.points)}
                     </div>
                   </div>
                 </div>
@@ -742,7 +746,9 @@ export default function DashboardPage() {
                   </div>
                   <div className="text-right">
                     <div className="text-xs uppercase tracking-wide text-white/75">Points</div>
-                    <div className="text-lg font-semibold">{leaderboardContext.current.points}</div>
+                    <div className="text-lg font-semibold">
+                      {formatLeaderboardPoints(leaderboardContext.current.points)}
+                    </div>
                   </div>
                 </div>
 
@@ -768,7 +774,9 @@ export default function DashboardPage() {
                   <div className="text-right">
                     <div className="text-xs uppercase tracking-wide app-muted">Points</div>
                     <div className="text-lg font-semibold text-[rgb(var(--app-ink))]">
-                      {leaderboardContext.below ? leaderboardContext.below.points : "--"}
+                      {leaderboardContext.below
+                        ? formatLeaderboardPoints(leaderboardContext.below.points)
+                        : "--"}
                     </div>
                   </div>
                 </div>

@@ -164,11 +164,25 @@ export type UserLeaderboardEntry = {
   display_name: string | null;
   group_id: string | null;
   group_name: string | null;
+  pet_name: string | null;
+  pet_image_url: string | null;
   points: number;
 };
 
 export type UserLeaderboardsResponse = {
   leaderboards: UserLeaderboardEntry[];
+};
+
+export type GroupLeaderboardEntry = {
+  group_id: string;
+  name: string;
+  type: string | null;
+  member_count: number;
+  points: number;
+};
+
+export type GroupLeaderboardsResponse = {
+  leaderboards: GroupLeaderboardEntry[];
 };
 
 export type ChallengeRules = {

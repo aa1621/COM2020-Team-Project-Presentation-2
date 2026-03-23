@@ -1,5 +1,8 @@
 ﻿import { apiFetch } from "./client";
-import type { UserLeaderboardsResponse } from "./types";
+import type {
+  GroupLeaderboardsResponse,
+  UserLeaderboardsResponse,
+} from "./types";
 
 export function getUserLeaderboards(groupId?: string) {
   // optional group filter (for "My group" tab)
@@ -8,4 +11,8 @@ export function getUserLeaderboards(groupId?: string) {
   const suffix = params.toString() ? `?${params.toString()}` : "";
 
   return apiFetch<UserLeaderboardsResponse>(`/leaderboards/users${suffix}`);
+}
+
+export function getGroupLeaderboards() {
+  return apiFetch<GroupLeaderboardsResponse>("/leaderboards/groups");
 }
