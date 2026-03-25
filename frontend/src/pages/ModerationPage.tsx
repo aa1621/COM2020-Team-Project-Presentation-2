@@ -15,6 +15,7 @@ type ModerationModalState =
     }
   | null;
 
+// just for display - UUIDs are too long to show in the queue table
 function shortId(value: string) {
   return value.length > 12 ? `${value.slice(0, 8)}...` : value;
 }
@@ -82,8 +83,8 @@ export default function ModerationPage() {
       try {
         const res = await getModerationQueue({ status, limit: 100 });
         setQueue(res.submissions || []);
-      } catch (err) {
-        setError(err instanceof Error ? err.message : "Failed to load moderation queue.");
+      } catch (e) {
+        setError((e as Error).message || "Failed to load queue.");
       } finally {
         setLoading(false);
       }
@@ -98,6 +99,7 @@ export default function ModerationPage() {
     setActingSubmissionId(submissionId);
     setError(null);
     try {
+      // console.log("submitting decision", decision, submissionId);
       const res = await decideSubmission(submissionId, decision, reason);
       setQueue((prev) => {
         if (status === "pending_review") {

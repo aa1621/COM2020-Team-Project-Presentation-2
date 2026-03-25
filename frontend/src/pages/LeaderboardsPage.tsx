@@ -63,6 +63,7 @@ export default function LeaderboardsPage() {
       if (!user?.user_id) return;
       try {
         const res = await getMyPet();
+        // console.log("pet for leaderboard avatar", res.pet.nickname);
         if (!cancelled) {
           setMyPetName(res.pet.nickname);
         }
@@ -103,7 +104,8 @@ export default function LeaderboardsPage() {
           setGroupEntries([]);
         }
       } catch (err) {
-        setError(err instanceof Error ? err.message : "Failed to load leaderboards.");
+        // TODO: could show a more specific message based on scope
+        setError((err as Error).message || "Failed to load leaderboards.");
       } finally {
         setLoading(false);
       }
@@ -193,7 +195,8 @@ export default function LeaderboardsPage() {
             {entries.length === 0 && (
               <div className="app-card-soft p-4 text-sm app-muted">No leaderboard entries yet.</div>
             )}
-            {entries.map((entry, index) => {
+            {/* const medals = ["🥇", "🥈", "🥉"]; — shelved this, looked off with the design */}
+        {entries.map((entry, index) => {
               const isMe = user?.user_id === entry.user_id;
               const displayName = entry.display_name || entry.username;
               const petLabel = entry.pet_name || (isMe && myPetName) || "Campus companion";

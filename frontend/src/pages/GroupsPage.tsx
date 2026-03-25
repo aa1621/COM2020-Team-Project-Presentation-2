@@ -42,9 +42,11 @@ export default function GroupsPage() {
       setError(null);
       try {
         const res = await getGroups();
+        console.log("groups loaded:", res.groups?.length);
         setGroups(res.groups || []);
-      } catch (err) {
-        setError(err instanceof Error ? err.message : "Failed to load groups.");
+      } catch {
+        // TODO: retry logic would be nice here
+        setError("Couldn't load groups, try refreshing.");
       } finally {
         setLoading(false);
       }
@@ -74,7 +76,7 @@ export default function GroupsPage() {
 
   const currentGroup = useMemo(() => {
     if (!user?.group_id) return null;
-    return groups.find((group) => group.group_id === user.group_id) || null;
+    return groups.find((g) => g.group_id === user.group_id) || null;
   }, [groups, user]);
 
   const filteredGroups = useMemo(() => {
@@ -104,6 +106,7 @@ export default function GroupsPage() {
     try {
       const res = await joinGroup(groupId);
       setUser(res.user);
+      // setGroups(await getGroups().then(r => r.groups || [])); // tried refreshing the full list here but caused a flicker
       setModal(
         groupId
           ? {
@@ -196,6 +199,7 @@ export default function GroupsPage() {
     setSendingInvite(true);
     setError(null);
     try {
+      // console.log("sending invite to", username, "from group", currentGroup.group_id);
       const res = await createInvite(
         currentGroup.group_id,
         {

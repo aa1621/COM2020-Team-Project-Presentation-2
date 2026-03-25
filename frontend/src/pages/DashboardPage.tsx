@@ -22,6 +22,7 @@ import type {
 
 type DateRangeOption = 7 | 30;
 
+// slice(5) gives us "MM-DD" which is compact enough for the chart axis
 function formatDateLabel(isoDate: string) {
   return isoDate.slice(5);
 }
@@ -44,6 +45,15 @@ function buildDateRange(days: number) {
   }
   return out;
 }
+
+// old version before we switched to UTC
+// function buildDateRange(days: number) {
+//   return Array.from({ length: days }, (_, i) => {
+//     const d = new Date();
+//     d.setDate(d.getDate() - (days - 1 - i));
+//     return d.toISOString().slice(0, 10);
+//   });
+// }
 
 // api doesn't give us a proper status code for "no pet" - just a plain error message
 function isMissingPetError(error: unknown) {
@@ -376,6 +386,7 @@ export default function DashboardPage() {
         const start = dateKeys[0];
         const end = dateKeys[dateKeys.length - 1];
         const res = await getActionLogs(start, end);
+        // console.log("logs fetched", res.logs?.length);
         if (!cancelled) setLogs(res.logs || []);
       } catch (err) {
         if (!cancelled) {
@@ -425,6 +436,7 @@ export default function DashboardPage() {
     [dateKeys.length, totalKg]
   );
   const hasChartData = totalKg > 0;
+  // TODO: maybe show a "no activity yet" empty state for brand new users
   const currentFocusLabel = category === "all" ? "All categories" : category;
   const today = useMemo(() => new Date().toISOString().slice(0, 10), []);
   const currentPersonalChallenges = useMemo(

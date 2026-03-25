@@ -41,6 +41,7 @@ function normalizeAuthUser(user: AuthUser): AuthUser {
 
 // handles both old format (bare AuthUser) and new format ({ user, session })
 // kept backwards compat so old stored sessions don't break on refresh
+// was originally just: return JSON.parse(raw) as AuthState; but that broke when we added sessions
 function parseStoredAuthState(raw: string): AuthState | null {
   try {
     const parsed = JSON.parse(raw) as AuthState | AuthUser;
@@ -108,6 +109,7 @@ export function getRefreshToken(): string | null {
 
 export function clearAuthUser() {
   if (!canUseBrowserStorage()) return;
+  console.log("clearing auth state");
   localStorage.removeItem(STORAGE_KEY);
   emitAuthChange();
 }
@@ -127,6 +129,7 @@ export function subscribeAuthUser(listener: () => void) {
     listener();
   };
 
+  // storage event fires when another tab changes localStorage, AUTH_EVENT covers the current tab
   window.addEventListener("storage", handleStorage);
   window.addEventListener(AUTH_EVENT, handleAuthChange);
 

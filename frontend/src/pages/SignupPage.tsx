@@ -72,6 +72,7 @@ export default function SignupPage() {
         display_name: displayName.trim(),
         password,
       });
+      // console.log("signup res", res);
 
       if (res.session?.access_token) {
         setAuthState({

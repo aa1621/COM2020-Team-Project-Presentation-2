@@ -19,6 +19,7 @@ function handleUnauthorizedResponse() {
     window.location.hash;
   const target = `/login?next=${encodeURIComponent(next)}`;
 
+  // hard redirect rather than React Router so all in-flight state is dropped cleanly
   window.location.assign(target);
 }
 
@@ -45,6 +46,7 @@ export async function apiFetch<T>(
       handleUnauthorizedResponse();
     }
 
+    // const msg = data?.error || data?.message || `Request failed: ${res.status}`;
     const msg =
       (data && (data.error || data.message)) ||
       `Request failed: ${res.status}`;

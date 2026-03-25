@@ -26,6 +26,10 @@ function getPetMood(pet: Pet) {
   }
 
   const average = (pet.health + pet.happiness + pet.energy) / 3;
+  // was going to add a streak bonus mood but it made the thresholds confusing
+  // if (pet.streak >= 7 && average >= 60) {
+  //   return { label: "On a roll!", chip: "bg-violet-100 text-violet-700", summary: "A full week streak - keep it going." };
+  // }
   if (average >= 80) {
     return {
       label: "Thriving",
@@ -169,6 +173,7 @@ export default function PetsPage() {
       setError(null);
 
       try {
+        // console.log("loading pet hub for", user.user_id);
         const [coinResult, petResult, catalogResult] = await Promise.allSettled([
           getCoinBalance(),
           getMyPet().catch((err) => {
@@ -204,6 +209,9 @@ export default function PetsPage() {
 
         setPet(petRes.pet);
         setNicknameDraft(petRes.pet.nickname);
+        if (petRes.pet.status !== "alive") {
+          console.warn("pet is not alive, status:", petRes.pet.status);
+        }
         setShowRevivePrompt(petRes.pet.status !== "alive");
 
         try {
