@@ -453,9 +453,9 @@ export default function PetsPage() {
                     } flex flex-col`}
                   >
                     <div className="aspect-square overflow-hidden rounded-[1.2rem] bg-[rgb(var(--app-soft))]">
-                      {option.image_url ? (
+                      {resolveGameAssetUrl(option.image_url) ? (
                         <img
-                          src={option.image_url}
+                          src={resolveGameAssetUrl(option.image_url) || undefined}
                           alt={option.name}
                           className="h-full w-full object-cover"
                         />

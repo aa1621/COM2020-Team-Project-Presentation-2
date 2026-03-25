@@ -179,9 +179,9 @@ function PetSetupModal({
                   } flex flex-col`}
                 >
                   <div className="aspect-square overflow-hidden rounded-[1.2rem] bg-[rgb(var(--app-soft))]">
-                    {option.image_url ? (
+                    {resolveGameAssetUrl(option.image_url) ? (
                       <img
-                        src={option.image_url}
+                        src={resolveGameAssetUrl(option.image_url) || undefined}
                         alt={option.name}
                         className="h-full w-full object-cover"
                       />
@@ -580,7 +580,6 @@ export default function DashboardPage() {
               <div className="sm:col-span-3">
                 <div className="app-card-soft flex items-center gap-4 p-4">
                   <div className="flex h-20 w-20 items-center justify-center overflow-hidden rounded-[1.2rem] bg-white text-2xl font-semibold text-[rgb(var(--app-ink))]">
-                    {/* image_url is just a filename from the db, needs resolving against bundled assets */}
                     {resolveGameAssetUrl(pet.image_url) ? (
                       <img
                         src={resolveGameAssetUrl(pet.image_url) || undefined}
@@ -684,9 +683,9 @@ export default function DashboardPage() {
             {earnedBadges.slice(0, 3).map((entry) => (
               <div key={entry.user_badge_id} className="app-card-soft p-4">
                 <div className="flex h-14 w-14 items-center justify-center overflow-hidden rounded-[1.1rem] bg-white">
-                  {entry.badges.image_url ? (
+                  {resolveGameAssetUrl(entry.badges.image_url) ? (
                     <img
-                      src={entry.badges.image_url}
+                      src={resolveGameAssetUrl(entry.badges.image_url) || undefined}
                       alt={entry.badges.name}
                       className="h-full w-full object-cover"
                     />

@@ -6,6 +6,7 @@ import { getGroups } from "../api/groups";
 import type { AccessibilitySettings } from "../accessibility/accessibilityMode";
 import { useAuth } from "../auth/AuthProvider";
 import type { Badge, EarnedBadgeEntry, Group } from "../api/types";
+import { resolveGameAssetUrl } from "../utils/gameAssetUrl";
 
 type LayoutContext = {
   accessibilitySettings: AccessibilitySettings;
@@ -318,9 +319,9 @@ export default function ProfilePage() {
                       {earnedBadges.map((entry) => (
                         <div key={entry.user_badge_id} className="app-card-soft p-4">
                           <div className="flex h-16 w-16 items-center justify-center overflow-hidden rounded-[1.2rem] bg-white">
-                            {entry.badges.image_url ? (
+                            {resolveGameAssetUrl(entry.badges.image_url) ? (
                               <img
-                                src={entry.badges.image_url}
+                                src={resolveGameAssetUrl(entry.badges.image_url) || undefined}
                                 alt={entry.badges.name}
                                 className="h-full w-full object-cover"
                               />
@@ -361,9 +362,9 @@ export default function ProfilePage() {
                       {lockedBadges.slice(0, 6).map((badge) => (
                         <div key={badge.badge_id} className="app-card-soft flex items-center gap-4 p-4 opacity-85">
                           <div className="flex h-14 w-14 shrink-0 items-center justify-center overflow-hidden rounded-[1.1rem] bg-white">
-                            {badge.image_url ? (
+                            {resolveGameAssetUrl(badge.image_url) ? (
                               <img
-                                src={badge.image_url}
+                                src={resolveGameAssetUrl(badge.image_url) || undefined}
                                 alt={badge.name}
                                 className="h-full w-full object-cover grayscale"
                               />
