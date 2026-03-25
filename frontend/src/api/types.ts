@@ -164,11 +164,25 @@ export type UserLeaderboardEntry = {
   display_name: string | null;
   group_id: string | null;
   group_name: string | null;
+  pet_name: string | null;
+  pet_image_url: string | null;
   points: number;
 };
 
 export type UserLeaderboardsResponse = {
   leaderboards: UserLeaderboardEntry[];
+};
+
+export type GroupLeaderboardEntry = {
+  group_id: string;
+  name: string;
+  type: string | null;
+  member_count: number;
+  points: number;
+};
+
+export type GroupLeaderboardsResponse = {
+  leaderboards: GroupLeaderboardEntry[];
 };
 
 export type ChallengeRules = {
@@ -259,4 +273,144 @@ export type ModerationQueueResponse = {
 export type DecideSubmissionResponse = {
   submission: ChallengeSubmission;
   moderationDecision: ModerationDecision;
+};
+
+export type Pet = {
+  pet_id: string;
+  user_id: string;
+  pet_type: string;
+  nickname: string;
+  image_url: string | null;
+  status: string;
+  health: number;
+  happiness: number;
+  energy: number;
+  level: number;
+  xp: number;
+  streak: number;
+  last_active_date: string | null;
+  adopted_at: string;
+};
+
+export type GetMyPetResponse = {
+  pet: Pet;
+};
+
+export type CreatePetRequest = {
+  pet_type?: string;
+  nickname?: string;
+};
+
+export type CreatePetResponse = {
+  pet: Pet;
+};
+
+export type PetCatalogEntry = {
+  pet_type: string;
+  name: string;
+  description: string | null;
+  image_url: string | null;
+  is_active: boolean;
+  sort_order: number | null;
+};
+
+export type PetCatalogResponse = {
+  pets: PetCatalogEntry[];
+};
+
+export type UpdatePetNicknameResponse = {
+  pet: {
+    pet_id: string;
+    nickname: string;
+  };
+};
+
+export type RevivePetResponse = {
+  pet: Pet;
+  coins_spent: number;
+  new_coin_balance: number;
+};
+
+export type CoinBalanceResponse = {
+  coins: number;
+};
+
+export type InventoryItem = {
+  pet_item_id: string;
+  quantity: number;
+  equipped: boolean;
+  acquired_at: string;
+  items: {
+    item_id: string;
+    name: string;
+    description: string | null;
+    image_url: string | null;
+    category: string;
+    rarity: string | null;
+  };
+};
+
+export type InventoryResponse = {
+  inventory: InventoryItem[];
+};
+
+export type InventoryMutationResponse = {
+  message: string;
+  inventory_entry: {
+    pet_item_id: string;
+    quantity?: number;
+    equipped: boolean;
+  };
+};
+
+export type ShopItem = {
+  item_id: string;
+  name: string;
+  description: string | null;
+  image_url: string | null;
+  category: string;
+  coin_cost: number;
+  rarity: string | null;
+};
+
+export type ShopItemsResponse = {
+  items: ShopItem[];
+};
+
+export type BuyShopItemResponse = {
+  message: string;
+  inventory_entry: {
+    pet_item_id: string;
+    pet_id: string;
+    item_id: string;
+    quantity: number;
+    equipped: boolean;
+  };
+  coins_spent: number;
+  new_coin_balance: number;
+};
+
+export type Badge = {
+  badge_id: string;
+  name: string;
+  description: string | null;
+  image_url: string | null;
+  sdg_number: number | null;
+  trigger_type: string;
+  trigger_value?: number | null;
+  is_active?: boolean;
+};
+
+export type EarnedBadgeEntry = {
+  user_badge_id: string;
+  earned_at: string;
+  badges: Badge;
+};
+
+export type EarnedBadgesResponse = {
+  badges: EarnedBadgeEntry[];
+};
+
+export type AllBadgesResponse = {
+  badges: Badge[];
 };

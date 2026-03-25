@@ -1,43 +1,90 @@
 import {supabaseAdmin, supabaseUser } from "../lib/supabaseClient.js";
+import { checkAndAwardBadges } from "../services/badges.service.js";
+import { deductReviveCost, COIN_REWARDS } from "../services/coins.service.js";
+import { applyPetDecline } from "../services/petDecline.service.js";
 
-const DEMO_USER_ID = 
-    process.env.DEMO_USER_ID || "c1aae9c3-5157-4a26-a7b3-28d8905cfef0";
+// const DEMO_USER_ID = 
+//     process.env.DEMO_USER_ID || "c1aae9c3-5157-4a26-a7b3-28d8905cfef0";
 
-function normalizeUserId(raw) {
-    if (!raw) return null;
-    const uuidV4ish =
-        /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
-    if (uuidV4ish.test(raw)) return raw;
-    if (raw === "demo-flynn" || raw === "demo") return DEMO_USER_ID;
-    return raw;
+// function normalizeUserId(raw) {
+//     if (!raw) return null;
+//     const uuidV4ish =
+//         /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
+//     if (uuidV4ish.test(raw)) return raw;
+//     if (raw === "demo-flynn" || raw === "demo") return DEMO_USER_ID;
+//     return raw;
+// }
+
+async function getCatalogPet({ petCatalogId, petType }) {
+    let query = supabaseUser
+        .from("pet_catalog")
+        .select("pet_type, name, description, image_url, is_active, sort_order")
+        .eq("pet_type", petType);
+
+    const { data, error } = await query.maybeSingle();
+    if (error) throw error;
+    return data;
 }
 
-const SUPABASE_STORAGE_URL = process.env.SUPABASE_URL + "/storage/v1/object/public/pet-assets";
+async function insertPetWithCatalog(userId, catalogPet, nickname) {
+    const payload = {
+        user_id: userId,
+        pet_type: catalogPet.pet_type,
+        nickname,
+        image_url: catalogPet.image_url,
+        status: "alive",
+        health: 100,
+        happiness: 100,
+        energy: 100,
+        level: 1,
+        xp: 0,
+        streak: 0,
+        last_active_date: new Date().toISOString().split("T")[0],
+        adopted_at: new Date().toISOString(),
+    };
 
-function getPetImageUrl(pet_type) {
-    return `${SUPABASE_STORAGE_URL}/pets/${pet_type}.png`;
+    const { data: pet, error } = await supabaseAdmin
+        .from("pets")
+        .insert(payload)
+        .select("*")
+        .single();
+
+    if (!error) return { pet, error: null };
+
+    return { pet: null, error };
 }
 
-const VALID_PET_TYPES = ["cat", "bird", "turtle"];
-const REVIVE_COST = 50; // Need to discuss
+export async function listPetCatalog(req, res, next) {
+    try {
+        const { data: pets, error } = await supabaseUser
+            .from("pet_catalog")
+            .select("pet_type, name, description, image_url, is_active, sort_order")
+            .eq("is_active", true)
+            .order("sort_order", { ascending: true });
+
+        if (error) return next(error);
+
+        return res.status(200).json({ pets: pets ?? [] });
+    } catch (err) {
+        next(err);
+    }
+}
 
 export async function createPet(req, res, next) {
     try {
-        const userId = normalizeUserId(req.header("x-user-id"));
-        if (!userId) {
-            return res.status(400).json({error: 'Missing user id. Pass header "x-user-id"'});
-        }
+        const userId = req.user.id;
+        // if (!userId) {
+        //     return res.status(400).json({error: 'Missing user id. Pass header "x-user-id"'});
+        // }
 
-        const pet_type = (req.body?.pet_type || "").trim();
-        if (!pet_type || !VALID_PET_TYPES.includes(pet_type)) {
-            return res.status(400).json({
-                error: `pet_type is required. Valid options ${VALID_PET_TYPES.join(", ")}`,
-            });
+        const petType = (req.body?.pet_type || "").trim() || null;
+        if (!petType) {
+            return res.status(400).json({ error: '"pet_type" is required' });
         }
 
         const nickname = (req.body?.nickname || "My Pet").trim();
 
-        const {data: existing} = await supabaseUser
+        const {data: existing} = await supabaseAdmin
             .from("pets")
             .select("pet_id")
             .eq("user_id", userId)
@@ -47,26 +94,15 @@ export async function createPet(req, res, next) {
                 return res.status(409).json({error: "User already has a pet"});
             }
 
-            const {data: pet, error} = await supabaseAdmin
-                .from("pets")
-                .insert({
-                    user_id: userId,
-                    pet_type,
-                    nickname,
-                    image_url: getPetImageUrl(pet_type),
-                    status: "alive",
-                    health: 100,
-                    happiness: 100,
-                    energy: 100,
-                    level: 1,
-                    xp: 0,
-                    streak: 0,
-                    last_active_date: new Date().toISOString().split("T")[0],
-                    adopted_at: new Date().toISOString(),
-                })
-                .select("*")
-                .single();
+            const catalogPet = await getCatalogPet({ petType });
+            if (!catalogPet) {
+                return res.status(404).json({ error: "Selected pet was not found in the catalog" });
+            }
+            if (catalogPet.is_active === false) {
+                return res.status(410).json({ error: "Selected pet is not currently available" });
+            }
 
+            const { pet, error } = await insertPetWithCatalog(userId, catalogPet, nickname);
             if (error) return next(error);
 
             return res.status(201).json({ pet });
@@ -77,12 +113,12 @@ export async function createPet(req, res, next) {
 
 export async function getMyPet(req, res, next) {
     try {
-        const userId = normalizeUserId(req.header("x-user-id"));
-        if (!userId) {
-            return res.status(400).json({ error: 'Missing user id. Pass header "x-user-id"' });
-        }
+        const userId = req.user.id;
+        // if (!userId) {
+        //     return res.status(400).json({ error: 'Missing user id. Pass header "x-user-id"' });
+        // }
 
-        const {data: pet, error} = await supabaseUser
+        const {data: pet, error} = await supabaseAdmin
             .from("pets")
             .select("*")
             .eq("user_id", userId)
@@ -91,7 +127,9 @@ export async function getMyPet(req, res, next) {
         if (error) return next(error);
         if (!pet) return res.status(404).json({error: "No pet found for this user"});
 
-        return res.status(200).json({pet});
+        const updatedPet = await applyPetDecline(pet);
+
+        return res.status(200).json({pet: updatedPet});
     } catch (err) {
         next(err);
     }
@@ -99,10 +137,10 @@ export async function getMyPet(req, res, next) {
 
 export async function updateNickname(req, res, next) {
     try {
-        const userId = normalizeUserId(req.header("x-user-id"));
-        if (!userId) {
-            return res.status(400).json({ error: 'Missing user id. Pass header "x-user-id"' });
-        }
+        const userId = req.user.id;
+        // if (!userId) {
+        //     return res.status(400).json({ error: 'Missing user id. Pass header "x-user-id"' });
+        // }
 
         const nickname = (req.body?.nickname || "").trim();
         if (!nickname) {
@@ -116,7 +154,7 @@ export async function updateNickname(req, res, next) {
             .from("pets")
             .update({nickname})
             .eq("user_id", userId)
-            .select("pet_id", nickname)
+            .select("pet_id, nickname")
             .maybeSingle();
 
         if (error) return next(error);
@@ -130,54 +168,36 @@ export async function updateNickname(req, res, next) {
 
 export async function revivePet(req, res, next) {
     try {
-        const userId = normalizeUserId(req.header("x-user-id"));
-        if (!userId) {
-            return res.status(400).json({ error: 'Missing user id. Pass header "x-user-id"' });
-        }
+        const userId = req.user.id;
+        // if (!userId) {
+        //     return res.status(400).json({ error: 'Missing user id. Pass header "x-user-id"' });
+        // }
 
-        const {data: pet, petErr} = await supabaseUser
+        const {data: pet, petErr} = await supabaseAdmin
             .from("pets")
             .select("*")
             .eq("user_id", userId)
             .maybeSingle();
 
             if (petErr) return next(petErr);
-            if (!pet) res.status(404).json({error: "No pet found for this user"});
+            if (!pet) return res.status(404).json({error: "No pet found for this user"});
 
             if (pet.status === "alive") {
                 return res.status(400).json({error: "Pet is already alive"});
             }
 
-            const {data: user, error: userErr} = await supabaseUser
-                .from("users")
-                .select("coins")
-                .eq("user_id", userId)
-                .single();
-
-            if (userErr) return next(userErr);
-
-            if (user.coins < REVIVE_COST) {
-                return res.status(402).json({
-                    error: `Not enough coins. Revive costs ${REVIVE_COST} coins. You have ${user.coins}`,
-                });
+            let coinResult;
+            try {
+                coinResult = await deductReviveCost(userId, pet.pet_id);
+            } catch (err) {
+                if (err.status === 402) {
+                    return res.status(402).json({
+                        error: `Not enough coins. Revive costs ${Math.abs(COIN_REWARDS.revive_cost)} coins.`,
+                        ...err.details,
+                    });
+                }
+                return next(err);
             }
-
-            const newBalance = user.coins - REVIVE_COST;
-
-            const {error: coinErr} = await supabaseAdmin
-                .from("users")
-                .update({coins: newBalance})
-                .eq("user_id", userId);
-
-            if (coinErr) return next(coinErr);
-
-            await supabaseAdmin.from("coin_transactions").insert({
-                user_id: userId,
-                amount: -REVIVE_COST,
-                balance_after: newBalance,
-                reason: "revive_cost",
-                reference_id: pet.pet_id,
-            });
 
             const {data: updatedPet, error: reviveErr} = await supabaseAdmin
                 .from("pets")
@@ -197,8 +217,8 @@ export async function revivePet(req, res, next) {
 
             return res.status(200).json({
                 pet: updatedPet,
-                coins_spent: REVIVE_COST,
-                new_coin_balance: newBalance,
+                coins_spent: Math.abs(COIN_REWARDS.revive_cost),
+                new_coin_balance: coinResult.new_balance,
             });
     } catch (err) {
         next(err);
@@ -207,10 +227,10 @@ export async function revivePet(req, res, next) {
 
 export async function updatePetStats(req, res, next) {
     try {
-        const userId = normalizeUserId(req.header("x-user-id"));
-        if (!userId) {
-            return res.status(400).json({ error: 'Missing user id. Pass header "x-user-id"' });
-        }
+        const userId = req.user.id;
+        // if (!userId) {
+        //     return res.status(400).json({ error: 'Missing user id. Pass header "x-user-id"' });
+        // }
 
         const allowed = ["health", "happiness", "energy", "xp", "level", "streak", "status", "last_active_date", "last_fed_at"];
         const updates = {};
@@ -234,6 +254,8 @@ export async function updatePetStats(req, res, next) {
 
         if (error) return next(error);
         if (!pet) return res.status(404).json({error: "No pet found for this user"});
+
+        if (updates.xp !== undefined || updates.level !== undefined || updates.streak !== undefined) await checkAndAwardBadges(userId);
 
         return res.status(200).json({pet});
     } catch (err) {

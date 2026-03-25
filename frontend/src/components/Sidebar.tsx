@@ -1,5 +1,7 @@
 import { NavLink } from "react-router-dom";
-import { clearDemoUser, getDemoUser } from "../auth/demoAuth";
+import { useAuth } from "../auth/AuthProvider";
+import type { AccessibilitySettings } from "../accessibility/accessibilityMode";
+import { logout } from "../api/auth";
 
 type NavItem = {
   label: string;
@@ -15,7 +17,7 @@ const baseNavItems: NavItem[] = [
   { label: "Challenges", href: "/app/challenges", icon: "challenges" },
   { label: "Log action", href: "/app/log-action", icon: "log" },
   { label: "Leaderboards", href: "/app/leaderboards", icon: "leaderboards" },
-  { label: "Profile", href: "/app/profile", icon: "profile" },
+  { label: "Profile / Settings", href: "/app/profile", icon: "profile" },
 ];
 
 function NavIcon({ icon }: { icon: NavItem["icon"] }) {
@@ -93,11 +95,15 @@ function NavIcon({ icon }: { icon: NavItem["icon"] }) {
 export default function Sidebar({
   isOpen,
   onToggle,
+  accessibilitySettings,
+  onToggleAccessibilityMode,
 }: {
   isOpen: boolean;
   onToggle: () => void;
+  accessibilitySettings: AccessibilitySettings;
+  onToggleAccessibilityMode: () => void;
 }) {
-  const user = getDemoUser();
+  const { clearUser, user } = useAuth();
   const canModerate = user?.role === "moderator" || user?.role === "maintainer";
   const navItems: NavItem[] = canModerate
     ? [
@@ -107,16 +113,26 @@ export default function Sidebar({
       ]
     : baseNavItems;
 
-  function handleLogout() {
-    clearDemoUser();
-    window.location.href = "/login";
+  async function handleLogout() {
+    try {
+      await logout();
+    } catch {
+      // Clear local auth state even if the server-side sign-out call fails.
+    } finally {
+      clearUser();
+      window.location.href = "/login";
+    }
   }
+
+  const accessibilityMode = accessibilitySettings.enabled;
 
   return (
     <aside
+      id="primary-navigation"
       className={`fixed left-4 top-4 z-50 transition-[width] duration-300 ease-out sm:left-6 sm:top-6 ${
         isOpen ? "w-[min(22rem,calc(100vw-2rem))]" : "w-14 sm:w-16"
       }`}
+      aria-label="Primary navigation"
     >
       <div className="app-card flex max-h-[calc(100vh-2rem)] min-h-[3.5rem] flex-col overflow-hidden p-3 sm:max-h-[calc(100vh-3rem)] sm:p-4">
         <div className={`flex items-center ${isOpen ? "justify-between gap-3" : "justify-center"}`}>
@@ -142,11 +158,18 @@ export default function Sidebar({
               : "pointer-events-none mt-0 h-0 overflow-hidden opacity-0"
           }`}
         >
-          <nav className="flex flex-col gap-1.5">
+          {accessibilityMode ? (
+            <a href="#main-content" className="mb-3 inline-flex text-xs font-medium text-[rgb(var(--app-brand))] underline-offset-4 hover:underline">
+              Skip to page content
+            </a>
+          ) : null}
+
+          <nav className="flex flex-col gap-1.5" aria-label="Primary navigation links">
             {navItems.map((item) => (
               <NavLink
                 key={item.href}
                 to={item.href}
+                aria-label={item.label}
                 className={({ isActive }) =>
                   `rounded-2xl px-4 py-3 text-sm font-medium transition ${
                     isActive
@@ -161,14 +184,49 @@ export default function Sidebar({
           </nav>
 
           <div className="mt-auto space-y-4 pt-6">
+            <div className="rounded-2xl border border-[rgb(var(--app-line))] bg-white px-4 py-3">
+              <label
+                htmlFor="sidebar-accessibility-mode"
+                className="flex cursor-pointer items-center justify-between gap-3"
+              >
+                <div>
+                  <div className="text-sm font-medium text-[rgb(var(--app-ink))]">
+                    Accessibility mode
+                  </div>
+                  <div className="text-xs app-muted">
+                    Stronger focus, borders, and contrast
+                  </div>
+                </div>
+                <span
+                  className={`relative inline-flex h-7 w-12 shrink-0 items-center rounded-full transition ${
+                    accessibilityMode ? "bg-[rgb(var(--app-brand))]" : "bg-[rgb(var(--app-line))]"
+                  }`}
+                >
+                  <input
+                    id="sidebar-accessibility-mode"
+                    type="checkbox"
+                    checked={accessibilityMode}
+                    onChange={onToggleAccessibilityMode}
+                    className="peer sr-only"
+                    aria-label="Toggle accessibility mode"
+                  />
+                  <span
+                    className={`absolute left-1 h-5 w-5 rounded-full bg-white shadow-sm transition ${
+                      accessibilityMode ? "translate-x-5" : "translate-x-0"
+                    }`}
+                  />
+                </span>
+              </label>
+            </div>
+
             <button
               type="button"
               onClick={handleLogout}
               className="w-full rounded-2xl border px-4 py-3 text-sm font-medium transition hover:bg-red-100"
               style={{
-                borderColor: "rgb(254 202 202)",
+                borderColor: "rgb(var(--app-danger-line))",
                 backgroundColor: "rgb(var(--app-danger-soft))",
-                color: "rgb(185 28 28)",
+                color: "rgb(var(--app-danger))",
               }}
             >
               Log out
@@ -177,7 +235,8 @@ export default function Sidebar({
         </div>
 
         {!isOpen ? (
-          <nav className="mt-4 flex flex-1 flex-col items-center gap-2">
+          <div className="mt-4 flex flex-1 flex-col items-center gap-2">
+            <nav className="flex w-full flex-col items-center gap-2" aria-label="Primary navigation links">
             {navItems.map((item) => (
               <NavLink
                 key={item.href}
@@ -195,15 +254,44 @@ export default function Sidebar({
                 <NavIcon icon={item.icon} />
               </NavLink>
             ))}
+            </nav>
+
+            <label
+              htmlFor="sidebar-accessibility-mode-collapsed"
+              className="mt-auto flex cursor-pointer flex-col items-center gap-1 px-1 pb-2 pt-4 text-center"
+            >
+              <span
+                className={`relative inline-flex h-7 w-12 items-center rounded-full transition ${
+                  accessibilityMode ? "bg-[rgb(var(--app-brand))]" : "bg-[rgb(var(--app-line))]"
+                }`}
+              >
+                <input
+                  id="sidebar-accessibility-mode-collapsed"
+                  type="checkbox"
+                  checked={accessibilityMode}
+                  onChange={onToggleAccessibilityMode}
+                  className="sr-only"
+                  aria-label="Toggle accessibility mode"
+                />
+                <span
+                  className={`absolute left-1 h-5 w-5 rounded-full bg-white shadow-sm transition ${
+                    accessibilityMode ? "translate-x-5" : "translate-x-0"
+                  }`}
+                />
+              </span>
+              <span className="text-[10px] font-medium leading-tight text-[rgb(var(--app-ink))]">
+                Accessibility
+              </span>
+            </label>
 
             <button
               type="button"
               onClick={handleLogout}
               title="Log out"
               aria-label="Log out"
-              className="mt-auto flex h-10 w-10 items-center justify-center rounded-2xl border text-[rgb(185_28_28)] transition hover:bg-red-100"
+              className="flex h-10 w-10 items-center justify-center rounded-2xl border text-[rgb(185_28_28)] transition hover:bg-red-100"
               style={{
-                borderColor: "rgb(254 202 202)",
+                borderColor: "rgb(var(--app-danger-line))",
                 backgroundColor: "rgb(var(--app-danger-soft))",
               }}
             >
@@ -211,7 +299,7 @@ export default function Sidebar({
                 <path d="M10 17l-5-5 5-5M5 12h10M14 4h4v16h-4" />
               </svg>
             </button>
-          </nav>
+          </div>
         ) : null}
       </div>
     </aside>

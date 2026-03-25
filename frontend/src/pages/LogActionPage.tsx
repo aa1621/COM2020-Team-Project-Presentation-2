@@ -1,11 +1,8 @@
 import { useEffect, useMemo, useState } from "react";
 import PageShell from "../components/PageShell";
+import { createActionLog } from "../api/actionLogs";
 import { apiFetch } from "../api/client";
-import { getDemoUserId } from "../auth/demoAuth";
-import {
-  applyActionLogReward,
-  type ActionRewardResult,
-} from "../gamification/store";
+import { useAuth } from "../auth/AuthProvider";
 import type {
   ActionType,
   CreateActionLogResponse,
@@ -13,12 +10,12 @@ import type {
 } from "../api/types";
 
 export default function LogActionPage() {
+  const { user } = useAuth();
   const [actionTypes, setActionTypes] = useState<ActionType[]>([]);
   const [selectedKey, setSelectedKey] = useState<string>("");
   const [quantity, setQuantity] = useState<string>("1");
 
   const [result, setResult] = useState<CreateActionLogResponse | null>(null);
-  const [rewardResult, setRewardResult] = useState<ActionRewardResult | null>(null);
   const [loadingTypes, setLoadingTypes] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -52,11 +49,9 @@ export default function LogActionPage() {
   async function onSubmit() {
     setError(null);
     setResult(null);
-    setRewardResult(null);
 
     const qty = Number(quantity);
-    const demoUserId = getDemoUserId();
-    if (!demoUserId) return setError("Please sign in to submit an action.");
+    if (!user?.user_id) return setError("Please sign in to submit an action.");
     if (!selectedKey) return setError("Please select an action.");
     if (!Number.isFinite(qty) || qty <= 0) {
       return setError("Quantity must be a positive number.");
@@ -64,17 +59,11 @@ export default function LogActionPage() {
 
     setSubmitting(true);
     try {
-      const res = await apiFetch<CreateActionLogResponse>("/action-logs", {
-        method: "POST",
-        headers: { "x-user-id": demoUserId },
-        body: JSON.stringify({
-          action_type_key: selectedKey,
-          quantity: qty,
-        }),
+      const res = await createActionLog({
+        action_type_key: selectedKey,
+        quantity: qty,
       });
-
       setResult(res);
-      setRewardResult(applyActionLogReward(demoUserId, res.log.score));
     } catch (e) {
       setError(e instanceof Error ? e.message : "Submit failed");
     } finally {
@@ -152,7 +141,7 @@ export default function LogActionPage() {
 
             {!result ? (
               <div className="app-card-soft p-5 text-sm app-muted">
-                Pick an action and submit to see the backend calculation and your pet reward.
+                Pick an action and submit to see the carbon estimate and scoring result.
               </div>
             ) : (
               <div className="space-y-4 text-sm text-[rgb(var(--app-ink))]">
@@ -175,28 +164,6 @@ export default function LogActionPage() {
                     score {result.log.score}
                   </div>
                 </div>
-
-                {rewardResult && (
-                  <div className="rounded-[1.5rem] border border-emerald-100 bg-emerald-50 p-5">
-                    <div className="text-xs font-semibold uppercase tracking-wide text-emerald-700">
-                      Pet reward
-                    </div>
-                    <div className="mt-2 text-base font-semibold text-[rgb(var(--app-ink))]">
-                      Your pet enjoyed that sustainable action.
-                    </div>
-                    <div className="mt-3 grid gap-3 sm:grid-cols-3">
-                      <div className="app-stat px-3 py-3 text-sm">
-                        +{rewardResult.coinsEarned} CG67coin
-                      </div>
-                      <div className="app-stat px-3 py-3 text-sm">
-                        +{rewardResult.happinessGain}% happiness
-                      </div>
-                      <div className="app-stat px-3 py-3 text-sm">
-                        +{rewardResult.energyGain}% energy
-                      </div>
-                    </div>
-                  </div>
-                )}
 
                 <div className="grid gap-3 md:grid-cols-2">
                   <div className="app-stat">

@@ -1,14 +1,7 @@
 import { supabaseAdmin } from "../lib/supabaseClient.js";
-
-// TEMPORARY GUARD (because we haven't set up authorisation yet)
-function requireModerator(req, res) {
-    const role = req.header("x-user-role");
-    if (role !== "moderator" && role !== "maintainer") {
-        res.status(403).json({error: 'Forbidden. Set header "x-user-role: moderator" for dev.'});
-        return false;
-    }
-    return true;
-}
+import { checkAndAwardBadges } from "../services/badges.service.js";
+import { awardSubmissionApproved } from "../services/coins.service.js";
+import { requireModerator } from "../services/requireModerator.service.js";
 
 export async function getModerationQueue(req, res, next) {
     try {
@@ -37,13 +30,13 @@ export async function decideSubmission(req, res, next) {
         if (!requireModerator(req, res)) return;
 
         const {submissionId} = req.params;
-        const moderatorId = req.header("x-user-id");
+        const moderatorId = req.user.id;
         const decision = req.body?.decision;
         const reason = req.body?.reason ?? null;
 
-        if (!moderatorId) {
-            return res.status(400).json({error: 'Missing moderator id (user header "x-user-id")'});
-        }
+        // if (!moderatorId) {
+        //     return res.status(400).json({error: 'Missing moderator id (user header "x-user-id")'});
+        // }
 
         if (!decision || !["approve", "reject"].includes(decision)) {
             return res.status(400).json({error: 'decision must be "approve" or "reject"'});
@@ -51,18 +44,19 @@ export async function decideSubmission(req, res, next) {
 
         const {data: submission, error: subErr} = await supabaseAdmin
             .from("submissions")
-            .select("submission_id, status")
+            .select("submission_id, user_id, status")
             .eq("submission_id", submissionId)
             .single();
 
+        if (subErr) return next(subErr);
+        if (!submission) return res.status(404).json({error: "Submission not found"});
+        
         if (submission.user_id === moderatorId) {
             return res.status(403).json({
                 error: "Moderators cannot review their own submissions."
             });
         }
 
-        if (subErr) return next(subErr);
-        if (!submission) return res.status(404).json({error: "Submission not found"});
 
         if (submission.status !== "pending_review") {
             return res.status(400).json({
@@ -95,6 +89,11 @@ export async function decideSubmission(req, res, next) {
             .single();
 
         if (updErr) return next(updErr);
+
+        if (newStatus === "approved") {
+            await awardSubmissionApproved(submission.user_id, submissionId);
+            await checkAndAwardBadges(submission.user_id);
+        } 
 
         res.json({submission: updated, moderationDecision: decisionRow});
     } catch (err) {

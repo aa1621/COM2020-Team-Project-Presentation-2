@@ -1,8 +1,8 @@
 import { Link, Navigate } from "react-router-dom";
-import { getDemoUser } from "../auth/demoAuth";
+import { useAuth } from "../auth/AuthProvider";
 
 export default function HomePage() {
-  const user = getDemoUser();
+  const { user } = useAuth();
 
   if (user) {
     return <Navigate to="/app/dashboard" replace />;

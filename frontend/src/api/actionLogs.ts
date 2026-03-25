@@ -5,26 +5,18 @@ import type {
   CreateActionLogResponse,
 } from "./types";
 
-export function createActionLog(body: CreateActionLogRequest, demoUserId: string) {
+export function createActionLog(body: CreateActionLogRequest) {
   return apiFetch<CreateActionLogResponse>("/action-logs", {
     method: "POST",
-    headers: {
-      "Content-Type": "application/json",
-      "x-user-id": demoUserId,
-    },
     body: JSON.stringify(body),
   });
 }
 
-export function getActionLogs(demoUserId: string, start?: string, end?: string) {
+export function getActionLogs(start?: string, end?: string) {
   const params = new URLSearchParams();
   if (start) params.set("start", start);
   if (end) params.set("end", end);
   const suffix = params.toString() ? `?${params.toString()}` : "";
 
-  return apiFetch<ActionLogListResponse>(`/action-logs${suffix}`, {
-    headers: {
-      "x-user-id": demoUserId,
-    },
-  });
+  return apiFetch<ActionLogListResponse>(`/action-logs${suffix}`);
 }

@@ -6,38 +6,20 @@ import type {
   RespondToInviteResponse,
 } from "./types";
 
-export function getInvites(demoUserId: string) {
-  return apiFetch<ListInvitesResponse>("/invites", {
-    headers: {
-      "x-user-id": demoUserId,
-    },
-  });
+export function getInvites() {
+  return apiFetch<ListInvitesResponse>("/invites");
 }
 
-export function respondToInvite(
-  inviteId: string,
-  decision: "accept" | "decline",
-  demoUserId: string
-) {
+export function respondToInvite(inviteId: string, decision: "accept" | "decline") {
   return apiFetch<RespondToInviteResponse>(`/invites/${inviteId}/respond`, {
     method: "POST",
-    headers: {
-      "x-user-id": demoUserId,
-    },
     body: JSON.stringify({ decision }),
   });
 }
 
-export function createInvite(
-  groupId: string,
-  payload: CreateInviteRequest,
-  demoUserId: string
-) {
+export function createInvite(groupId: string, payload: CreateInviteRequest) {
   return apiFetch<CreateInviteResponse>(`/groups/${groupId}/invites`, {
     method: "POST",
-    headers: {
-      "x-user-id": demoUserId,
-    },
     body: JSON.stringify(payload),
   });
 }

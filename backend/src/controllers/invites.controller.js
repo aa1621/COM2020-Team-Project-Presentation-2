@@ -1,21 +1,21 @@
 import { supabaseAdmin, supabaseUser } from "../lib/supabaseClient.js";
 
-const DEMO_USER_ID = 
-    process.env.DEMO_USER_ID || "c1aae9c3-5157-4a26-a7b3-28d8905cfef0";
+// const DEMO_USER_ID = 
+//     process.env.DEMO_USER_ID || "c1aae9c3-5157-4a26-a7b3-28d8905cfef0";
 
-function normalizeUserId(raw) {
-    if (!raw) return null;
-    const uuidV4ish =
-        /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
-    if (uuidV4ish.test(raw)) return raw;
-    if (raw === "demo-flynn" || raw === "demo") return DEMO_USER_ID;
-    return raw;
-}
+// function normalizeUserId(raw) {
+//     if (!raw) return null;
+//     const uuidV4ish =
+//         /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
+//     if (uuidV4ish.test(raw)) return raw;
+//     if (raw === "demo-flynn" || raw === "demo") return DEMO_USER_ID;
+//     return raw;
+// }
 
 export async function listInvites(req, res, next) {
     try {
-        const userId = normalizeUserId(req.headers["x-user-id"] || req.body?.user_id);
-        if (!userId) return res.status(400).json({erorr: 'Missing "x-user-id" header'});
+        const userId = req.user.id;
+        // if (!userId) return res.status(400).json({error: 'Missing "x-user-id" header'});
 
         const {data, error} = await supabaseUser
             .from("group_invites")
@@ -37,9 +37,8 @@ export async function listInvites(req, res, next) {
 
 export async function respondToInvite(req, res, next) {
     try {
-        console.log("HEADERS:", req.headers);
-        const userId = normalizeUserId(req.headers["x-user-id"] || req.body?.user_id);
-        if (!userId) return res.status(400).json({error: 'Missing "x-user-id" header'});
+        const userId = req.user.id;
+        // if (!userId) return res.status(400).json({error: 'Missing "x-user-id" header'});
 
         const {inviteId} = req.params;
         const decision = req.body?.decision;

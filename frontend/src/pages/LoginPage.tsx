@@ -1,18 +1,31 @@
 import { useState } from "react";
-import { Link, Navigate, useNavigate } from "react-router-dom";
+import { Link, Navigate, useLocation, useNavigate } from "react-router-dom";
 import PageShell from "../components/PageShell";
-import { loginDemo } from "../api/auth";
-import { getDemoUser, setDemoUser } from "../auth/demoAuth";
+import { login } from "../api/auth";
+import { useAuth } from "../auth/AuthProvider";
 
 export default function LoginPage() {
-  const existingUser = getDemoUser();
+  const { isAuthenticated, setAuthState } = useAuth();
   const navigate = useNavigate();
-  const [username, setUsername] = useState("");
+  const location = useLocation();
+  const [identifier, setIdentifier] = useState("");
   const [password, setPassword] = useState("");
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const signupMessage =
+    typeof location.state === "object" &&
+    location.state &&
+    "message" in location.state &&
+    typeof location.state.message === "string"
+      ? location.state.message
+      : null;
+  const nextPath = (() => {
+    const params = new URLSearchParams(location.search);
+    const next = params.get("next");
+    return next && next.startsWith("/") ? next : "/app/dashboard";
+  })();
 
-  if (existingUser) {
+  if (isAuthenticated) {
     return <Navigate to="/app/dashboard" replace />;
   }
 
@@ -20,16 +33,30 @@ export default function LoginPage() {
     e.preventDefault();
     setError(null);
 
-    if (!username.trim() || !password) {
-      setError("Please enter your username and password.");
+    if (!identifier.trim() || !password) {
+      setError("Please enter your username or email and password.");
       return;
     }
 
     setSubmitting(true);
     try {
-      const res = await loginDemo(username.trim(), password);
-      setDemoUser(res.user);
-      navigate("/app/dashboard");
+      const res = await login({
+        identifier: identifier.trim().toLowerCase(),
+        password,
+      });
+
+      if (!res.session?.access_token) {
+        throw new Error("Login succeeded but no session token was returned.");
+      }
+
+      setAuthState({
+        user: {
+          ...res.user,
+          group_id: res.user.group_id ?? null,
+        },
+        session: res.session,
+      });
+      navigate(nextPath, { replace: true });
     } catch (err) {
       setError(err instanceof Error ? err.message : "Login failed.");
     } finally {
@@ -45,33 +72,53 @@ export default function LoginPage() {
           subtitle="Pick up where you left off and keep your carbon challenge going."
         >
           <form className="space-y-3" onSubmit={onSubmit}>
-            <input
-              className="w-full rounded-xl border border-gray-200 bg-white px-4 py-3 text-sm"
-              placeholder="Username"
-              value={username}
-              onChange={(e) => setUsername(e.target.value)}
-              autoComplete="username"
-            />
-            <input
-              className="w-full rounded-xl border border-gray-200 bg-white px-4 py-3 text-sm"
-              placeholder="Password"
-              type="password"
-              value={password}
-              onChange={(e) => setPassword(e.target.value)}
-              autoComplete="current-password"
-            />
+            <div className="space-y-1.5">
+              <label htmlFor="login-identifier" className="text-sm font-medium text-[rgb(var(--app-ink))]">
+                Username or email
+              </label>
+              <input
+                id="login-identifier"
+                className="app-input"
+                placeholder="Username or email"
+                type="text"
+                value={identifier}
+                onChange={(e) => setIdentifier(e.target.value)}
+                autoComplete="username"
+                aria-invalid={Boolean(error && !identifier.trim())}
+              />
+            </div>
+            <div className="space-y-1.5">
+              <label htmlFor="login-password" className="text-sm font-medium text-[rgb(var(--app-ink))]">
+                Password
+              </label>
+              <input
+                id="login-password"
+                className="app-input"
+                placeholder="Password"
+                type="password"
+                value={password}
+                onChange={(e) => setPassword(e.target.value)}
+                autoComplete="current-password"
+                aria-invalid={Boolean(error && !password)}
+              />
+            </div>
 
             <button
               type="submit"
-              className="w-full rounded-xl bg-gray-900 px-4 py-3 text-sm font-medium text-white hover:bg-gray-800"
+              className="app-button-primary w-full"
               disabled={submitting}
             >
               {submitting ? "Signing in..." : "Sign in"}
             </button>
 
             {error && (
-              <div className="rounded-xl bg-red-50 p-3 text-sm text-red-700">
+              <div className="rounded-xl bg-red-50 p-3 text-sm text-red-700" role="alert" aria-live="polite">
                 {error}
+              </div>
+            )}
+            {signupMessage && !error && (
+              <div className="rounded-xl bg-emerald-50 p-3 text-sm text-emerald-700" role="status" aria-live="polite">
+                {signupMessage}
               </div>
             )}
 

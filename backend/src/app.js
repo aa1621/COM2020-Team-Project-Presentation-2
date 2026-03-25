@@ -3,9 +3,33 @@ import cors from 'cors';
 
 const app = express();
 
-app.use(cors());
+function normalizeOrigin(value) {
+    return value.trim().replace(/\/+$/, "");
+}
+
+const allowedOrigins = (process.env.CORS_ORIGIN || "http://localhost:5173")
+    .split(",")
+    .map(normalizeOrigin)
+    .filter(Boolean);
+
+app.use(cors({
+    origin: (origin, callback) => {
+        if (!origin) return callback(null, true);
+
+        if (allowedOrigins.includes(normalizeOrigin(origin))) {
+            return callback(null, true);
+        }
+
+        callback(new Error(`CORS policy: origin ${origin} is not allowed`));
+    },
+    credentials: true,
+    methods: ["GET", "POST", "PATCH", "PUT", "DELETE", "OPTIONS"],
+    allowedHeaders: ["Content-Type", "Authorization"],
+}));
 app.use(express.json({ limit: "5mb" }));
 app.use(express.urlencoded({ limit: "5mb", extended: true }));
+
+import { authenticate, requireRole } from "./middleware/authenticate.middleware.js";
 
 import actionTypesRoutes from './routes/actionTypes.route.js';
 import actionLogsRoutes from './routes/actionLogs.route.js';
@@ -20,6 +44,7 @@ import petsRouter from "./routes/pets.route.js";
 import shopRouter from "./routes/shop.route.js";
 import coinsRouter from "./routes/coins.route.js";
 import inventoryRouter from "./routes/inventory.route.js";
+import badgesRouter from "./routes/badges.route.js";
 
 
 
@@ -30,19 +55,29 @@ app.get('/version', (req, res) => {
     res.json({version: "week5-demo"});
 });
 
-app.use('/action-types', actionTypesRoutes);
-app.use('/action-logs', actionLogsRoutes);
+// Public - no auth needed
 app.use('/auth', authRoutes);
-app.use('/groups', groupsRoutes);
-app.use('/invites', invitesRoutes);
+app.use('/action-types', actionTypesRoutes);
 app.use('/leaderboards', leaderboardsRoutes);
-app.use('/', submissionsRoutes);
+
+// Protected - JWT needed
+app.use('/action-logs', authenticate, actionLogsRoutes);
+app.use('/groups', authenticate, groupsRoutes);
+app.use('/invites', authenticate, invitesRoutes);
+app.use("/pets", authenticate, petsRouter);
+app.use("/shop", authenticate, shopRouter);
+app.use("/coins", authenticate, coinsRouter);
+app.use("/inventory", authenticate, inventoryRouter);
+app.use("/badges", authenticate, badgesRouter);
+
+// Challenges - GET routes are public, write routes (POST/PATCH/DELETE) are moderator only
 app.use('/', challengesRoutes);
-app.use('/', moderationRoutes);
-app.use("/pets", petsRouter);
-app.use("/shop", shopRouter);
-app.use("/coins", coinsRouter);
-app.use("/inventory", inventoryRouter);
+
+// Submissions - authenticated users only
+app.use('/', authenticate, submissionsRoutes);
+
+// Moderation - moderator/maintainer role needed
+app.use('/', authenticate, requireRole("moderator", "maintainer"), moderationRoutes);
 
 app.get('/errortest', (req, res) => {
     throw new Error("Testing error");

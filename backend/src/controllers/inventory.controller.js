@@ -1,25 +1,25 @@
 import {supabaseAdmin, supabaseUser } from "../lib/supabaseClient.js";
 
-const DEMO_USER_ID = 
-    process.env.DEMO_USER_ID || "c1aae9c3-5157-4a26-a7b3-28d8905cfef0";
+// const DEMO_USER_ID = 
+//     process.env.DEMO_USER_ID || "c1aae9c3-5157-4a26-a7b3-28d8905cfef0";
 
-function normalizeUserId(raw) {
-    if (!raw) return null;
-    const uuidV4ish =
-        /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
-    if (uuidV4ish.test(raw)) return raw;
-    if (raw === "demo-flynn" || raw === "demo") return DEMO_USER_ID;
-    return raw;
-}
+// function normalizeUserId(raw) {
+//     if (!raw) return null;
+//     const uuidV4ish =
+//         /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
+//     if (uuidV4ish.test(raw)) return raw;
+//     if (raw === "demo-flynn" || raw === "demo") return DEMO_USER_ID;
+//     return raw;
+// }
 
 export async function getInventory(req, res, next) {
     try {
-        const userId = normalizeUserId(req.header("x-user-id"));
-        if (!userId) {
-            return res.status(400).json({error: 'Missing user id. Pass header "x-user-id"'});
-        }
+        const userId = req.user.id;
+        // if (!userId) {
+        //     return res.status(400).json({error: 'Missing user id. Pass header "x-user-id"'});
+        // }
 
-        const {data: pet, error: petErr} = await supabaseUser
+        const {data: pet, error: petErr} = await supabaseAdmin
             .from("pets")
             .select("pet_id")
             .eq("user_id", userId)
@@ -28,7 +28,7 @@ export async function getInventory(req, res, next) {
         if (petErr) return next(petErr);
         if (!pet) return res.status(404).json({error: "No pet found for this user"});
 
-        const {data: inventory, error} = await supabaseUser
+        const {data: inventory, error} = await supabaseAdmin
             .from("pet_items")
             .select(`
                 pet_item_id,
@@ -57,13 +57,13 @@ export async function getInventory(req, res, next) {
 
 export async function equipItem(req, res, next) {
     try {
-        const userId = normalizeUserId(req.header("x-user-id"));
-        if (!userId) {
-            return res.status(400).json({error: 'Missing user id. Pass header "x-user-id"'});
-        }
+        const userId = req.user.id;
+        // if (!userId) {
+        //     return res.status(400).json({error: 'Missing user id. Pass header "x-user-id"'});
+        // }
 
         const { itemId } = req.params;
-        const {data: pet, error: petErr} = await supabaseUser
+        const {data: pet, error: petErr} = await supabaseAdmin
             .from("pets")
             .select("pet_id")
             .eq("user_id", userId)
@@ -72,7 +72,7 @@ export async function equipItem(req, res, next) {
         if (petErr) return next(petErr);
         if (!pet) return res.status(404).json({error: "No pet found for this user"});
 
-        const {data: entry, error: entryErr} = await supabaseUser
+        const {data: entry, error: entryErr} = await supabaseAdmin
             .from("pet_items")
             .select("pet_item_id, equipped, items(item_id, category)")
             .eq("pet_id", pet.pet_id)
@@ -85,7 +85,7 @@ export async function equipItem(req, res, next) {
 
         const category = entry.items?.category;
         if (category) {
-            const {data: categoryItems, error: catErr} = await supabaseUser
+            const {data: categoryItems, error: catErr} = await supabaseAdmin
                 .from("items")
                 .select("item_id")
                 .eq("category", category);
@@ -121,14 +121,14 @@ export async function equipItem(req, res, next) {
 
 export async function unequipItem(req, res, next) {
     try {
-        const userId = normalizeUserId(req.header("x-user-id"));
-        if (!userId) {
-            return res.status(400).json({error: 'Missing user id. Pass header "x-user-id"'});
-        }
+        const userId = req.user.id;
+        // if (!userId) {
+        //     return res.status(400).json({error: 'Missing user id. Pass header "x-user-id"'});
+        // }
 
         const {itemId} = req.params;
 
-        const {data: pet, error: petErr} = await supabaseUser
+        const {data: pet, error: petErr} = await supabaseAdmin
             .from("pets")
             .select("pet_id")
             .eq("user_id", userId)
@@ -137,7 +137,7 @@ export async function unequipItem(req, res, next) {
         if (petErr) return next(petErr);
         if (!pet) return res.status(404).json({error: "No pet found for this user"});
 
-        const {data: entry, error: entryErr} = await supabaseUser
+        const {data: entry, error: entryErr} = await supabaseAdmin
             .from("pet_items")
             .select("pet_item_id, equipped")
             .eq("pet_id", pet.pet_id)

@@ -1,16 +1,16 @@
 ﻿import { supabaseAdmin, supabaseUser } from "../lib/supabaseClient.js";
 
-const DEMO_USER_ID =
-    process.env.DEMO_USER_ID || "c1aae9c3-5157-4a26-a7b3-28d8905cfef0";
+// const DEMO_USER_ID =
+//     process.env.DEMO_USER_ID || "c1aae9c3-5157-4a26-a7b3-28d8905cfef0";
 
-function normalizeUserId(raw) {
-    if (!raw) return null;
-    const uuidV4ish =
-        /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
-    if (uuidV4ish.test(raw)) return raw;
-    if (raw == "demo-flynn" || raw == "demo") return DEMO_USER_ID;
-    return raw;
-}
+// function normalizeUserId(raw) {
+//     if (!raw) return null;
+//     const uuidV4ish =
+//         /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
+//     if (uuidV4ish.test(raw)) return raw;
+//     if (raw == "demo-flynn" || raw == "demo") return DEMO_USER_ID;
+//     return raw;
+// }
 
 export async function listGroups(req, res, next) {
     try {
@@ -46,12 +46,12 @@ export async function listGroups(req, res, next) {
 
 export async function joinGroup(req, res, next) {
     try {
-        const demoUserId = normalizeUserId(req.header("x-user-id") || req.body?.user_id);
-        if (!demoUserId) {
-            return res.status(400).json({
-                error: 'Missing user id. For now pass header "x-user-id" (or body user_id)',
-            });
-        }
+        const userId = req.user.id;
+        // if (!userId) {
+        //     return res.status(400).json({
+        //         error: 'Missing user id. For now pass header "x-user-id" (or body user_id)',
+        //     });
+        // }
 
         const rawGroupId = req.body?.group_id ?? null;
         const groupId = rawGroupId || null;
@@ -74,7 +74,7 @@ export async function joinGroup(req, res, next) {
         const {data: currentUser} = await supabaseUser
             .from("users")
             .select("group_id")
-            .eq("user_id", demoUserId)
+            .eq("user_id", userId)
             .single();
 
         const previousGroupId = currentUser?.group_id ?? null;
@@ -82,7 +82,7 @@ export async function joinGroup(req, res, next) {
         const { data: updatedUser, error: updateError } = await supabaseAdmin
             .from("users")
             .update({ group_id: groupId })
-            .eq("user_id", demoUserId)
+            .eq("user_id", userId)
             .select("user_id, username, display_name, role, group_id")
             .single();
 
@@ -92,14 +92,14 @@ export async function joinGroup(req, res, next) {
             await supabaseAdmin
                 .from("group_memberships")
                 .upsert(
-                    {group_id: groupId, user_id: demoUserId, role:"member"},
+                    {group_id: groupId, user_id: userId, role:"member"},
                     {onConflict: "group_id,user_id"}
                 );
         } else if (previousGroupId) {
             await supabaseAdmin
                 .from("group_memberships")
                 .delete()
-                .eq("user_id", demoUserId)
+                .eq("user_id", userId)
                 .eq("group_id", previousGroupId);
         }
 
@@ -113,12 +113,12 @@ export async function joinGroup(req, res, next) {
 
 export async function createGroup(req, res, next) {
     try {
-        const demoUserId = normalizeUserId(req.header("x-user-id") || req.body?.user_id);
-        if (!demoUserId) {
-            return res.status(400).json({
-                error: 'Missing user id. For now use header "x-user-id" (or body user_id)',
-            });
-        }
+        const userId = req.user.id;
+        // if (!userId) {
+        //     return res.status(400).json({
+        //         error: 'Missing user id. For now use header "x-user-id" (or body user_id)',
+        //     });
+        // }
 
         const name = (req.body?.name || "").trim();
         if (!name) {
@@ -132,7 +132,7 @@ export async function createGroup(req, res, next) {
             .insert({
                 name,
                 type,
-                created_by: demoUserId,
+                created_by: userId,
             })
             .select("group_id, name, type, created_at, created_by")
             .single();
@@ -142,7 +142,7 @@ export async function createGroup(req, res, next) {
         const {data: updatedUser, error: updateErr} = await supabaseAdmin
             .from("users")
             .update({group_id: group.group_id})
-            .eq("user_id", demoUserId)
+            .eq("user_id", userId)
             .select("user_id, username, display_name, role, group_id")
             .single();
 
@@ -151,7 +151,7 @@ export async function createGroup(req, res, next) {
         const {error: membershipErr} = await supabaseAdmin
             .from("group_memberships")
             .upsert(
-                {group_id: group.group_id, user_id: demoUserId, role: "moderator"},
+                {group_id: group.group_id, user_id: userId, role: "moderator"},
                 {onConflict: "group_id,user_id"}
             );
 
@@ -167,10 +167,10 @@ export async function createInvite(req, res, next) {
   try {
     //console.log("BODY:", req.body);
 
-    const inviterId = normalizeUserId(req.header("x-user-id") || req.body?.user_id);
-    if (!inviterId) {
-      return res.status(400).json({ error: 'Missing user id (header "x-user-id")' });
-    }
+    const inviterId = req.user.id;
+    // if (!inviterId) {
+    //   return res.status(400).json({ error: 'Missing user id (header "x-user-id")' });
+    // }
 
     const { groupId } = req.params;
     const message = (req.body?.message || "").trim() || null;

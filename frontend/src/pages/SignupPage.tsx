@@ -2,20 +2,20 @@ import { useState } from "react";
 import { Link, Navigate, useNavigate } from "react-router-dom";
 import PageShell from "../components/PageShell";
 import { signup } from "../api/auth";
-import { getDemoUser, setDemoUser } from "../auth/demoAuth";
-import { ensureGamificationState } from "../gamification/store";
+import { useAuth } from "../auth/AuthProvider";
 
 export default function SignupPage() {
-  const existingUser = getDemoUser();
+  const { isAuthenticated, setAuthState } = useAuth();
   const navigate = useNavigate();
   const [displayName, setDisplayName] = useState("");
+  const [email, setEmail] = useState("");
   const [username, setUsername] = useState("");
   const [password, setPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  if (existingUser) {
+  if (isAuthenticated) {
     return <Navigate to="/app/dashboard" replace />;
   }
 
@@ -23,13 +23,13 @@ export default function SignupPage() {
     e.preventDefault();
     setError(null);
 
-    if (!username.trim() || !password) {
-      setError("Please enter a username and password.");
+    if (!displayName.trim() || !email.trim() || !username.trim() || !password) {
+      setError("Please enter your display name, email, username, and password.");
       return;
     }
 
-    if (password.length < 6) {
-      setError("Password must be at least 6 characters long.");
+    if (password.length < 8) {
+      setError("Password must be at least 8 characters long.");
       return;
     }
 
@@ -41,13 +41,30 @@ export default function SignupPage() {
     setSubmitting(true);
     try {
       const res = await signup({
+        email: email.trim().toLowerCase(),
         username: username.trim(),
-        display_name: displayName.trim() || undefined,
+        display_name: displayName.trim(),
         password,
       });
-      setDemoUser(res.user);
-      ensureGamificationState(res.user.user_id);
-      navigate("/app/dashboard");
+
+      if (res.session?.access_token) {
+        setAuthState({
+          user: {
+            ...res.user,
+            group_id: res.user.group_id ?? null,
+          },
+          session: res.session,
+        });
+        navigate("/app/dashboard");
+        return;
+      }
+
+      navigate("/login", {
+        replace: true,
+        state: {
+          message: "Account created. Please log in with your new username or email.",
+        },
+      });
     } catch (err) {
       setError(err instanceof Error ? err.message : "Could not create account.");
     } finally {
@@ -63,46 +80,89 @@ export default function SignupPage() {
           subtitle="Set up your player profile and jump straight into the challenge."
         >
           <form className="space-y-3" onSubmit={onSubmit}>
-            <input
-              className="w-full rounded-xl border border-gray-200 bg-white px-4 py-3 text-sm"
-              placeholder="Display name (optional)"
-              value={displayName}
-              onChange={(e) => setDisplayName(e.target.value)}
-              autoComplete="nickname"
-            />
-            <input
-              className="w-full rounded-xl border border-gray-200 bg-white px-4 py-3 text-sm"
-              placeholder="Username"
-              value={username}
-              onChange={(e) => setUsername(e.target.value)}
-              autoComplete="username"
-            />
-            <input
-              className="w-full rounded-xl border border-gray-200 bg-white px-4 py-3 text-sm"
-              placeholder="Password"
-              type="password"
-              value={password}
-              onChange={(e) => setPassword(e.target.value)}
-              autoComplete="new-password"
-            />
-            <input
-              className="w-full rounded-xl border border-gray-200 bg-white px-4 py-3 text-sm"
-              placeholder="Confirm password"
-              type="password"
-              value={confirmPassword}
-              onChange={(e) => setConfirmPassword(e.target.value)}
-              autoComplete="new-password"
-            />
+            <div className="space-y-1.5">
+              <label htmlFor="signup-display-name" className="text-sm font-medium text-[rgb(var(--app-ink))]">
+                Display name
+              </label>
+              <input
+                id="signup-display-name"
+                className="app-input"
+                placeholder="Display name"
+                value={displayName}
+                onChange={(e) => setDisplayName(e.target.value)}
+                autoComplete="nickname"
+                aria-invalid={Boolean(error && !displayName.trim())}
+              />
+            </div>
+            <div className="space-y-1.5">
+              <label htmlFor="signup-email" className="text-sm font-medium text-[rgb(var(--app-ink))]">
+                Email
+              </label>
+              <input
+                id="signup-email"
+                className="app-input"
+                placeholder="Email address"
+                type="email"
+                value={email}
+                onChange={(e) => setEmail(e.target.value)}
+                autoComplete="email"
+                aria-invalid={Boolean(error && !email.trim())}
+              />
+            </div>
+            <div className="space-y-1.5">
+              <label htmlFor="signup-username" className="text-sm font-medium text-[rgb(var(--app-ink))]">
+                Username
+              </label>
+              <input
+                id="signup-username"
+                className="app-input"
+                placeholder="Username"
+                value={username}
+                onChange={(e) => setUsername(e.target.value)}
+                autoComplete="username"
+                aria-invalid={Boolean(error && !username.trim())}
+              />
+            </div>
+            <div className="space-y-1.5">
+              <label htmlFor="signup-password" className="text-sm font-medium text-[rgb(var(--app-ink))]">
+                Password
+              </label>
+              <input
+                id="signup-password"
+                className="app-input"
+                placeholder="Password"
+                type="password"
+                value={password}
+                onChange={(e) => setPassword(e.target.value)}
+                autoComplete="new-password"
+                aria-invalid={Boolean(error && password.length > 0 && password.length < 8)}
+              />
+            </div>
+            <div className="space-y-1.5">
+              <label htmlFor="signup-confirm-password" className="text-sm font-medium text-[rgb(var(--app-ink))]">
+                Confirm password
+              </label>
+              <input
+                id="signup-confirm-password"
+                className="app-input"
+                placeholder="Confirm password"
+                type="password"
+                value={confirmPassword}
+                onChange={(e) => setConfirmPassword(e.target.value)}
+                autoComplete="new-password"
+                aria-invalid={Boolean(error && confirmPassword.length > 0 && password !== confirmPassword)}
+              />
+            </div>
             <button
               type="submit"
-              className="w-full rounded-xl bg-emerald-600 px-4 py-3 text-sm font-medium text-white hover:bg-emerald-500"
+              className="app-button-primary w-full"
               disabled={submitting}
             >
               {submitting ? "Creating account..." : "Create account"}
             </button>
 
             {error && (
-              <div className="rounded-xl bg-red-50 p-3 text-sm text-red-700">
+              <div className="rounded-xl bg-red-50 p-3 text-sm text-red-700" role="alert" aria-live="polite">
                 {error}
               </div>
             )}
