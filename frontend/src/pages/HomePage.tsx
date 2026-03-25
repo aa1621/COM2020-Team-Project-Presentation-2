@@ -16,7 +16,7 @@ export default function HomePage() {
             <div className="text-sm font-semibold uppercase tracking-[0.2em] text-emerald-700">
               Campus Carbon
             </div>
-            <div className="text-xs text-gray-500">Challenge-based sustainability for Exeter</div>
+            <div className="text-xs text-gray-500">Student sustainability tracker</div>
           </div>
           <div className="flex gap-3">
             <Link
@@ -38,14 +38,14 @@ export default function HomePage() {
           <section className="space-y-8">
             <div className="space-y-5">
               <div className="inline-flex rounded-full border border-emerald-200 bg-white/70 px-4 py-2 text-xs font-medium text-emerald-800">
-                Sprint 2 focus: real actions, real teams, visible progress
+                University of Exeter group project
               </div>
               <h1 className="max-w-3xl text-5xl font-semibold leading-tight tracking-tight text-gray-950">
-                Turn everyday low-carbon choices into challenges your campus can actually feel.
+                Log low-carbon actions, join a group, and see your progress in one place.
               </h1>
               <p className="max-w-2xl text-base leading-7 text-gray-600">
-                Log sustainable actions, join group missions, earn points, and see how your
-                choices add up across halls, societies, and the wider Exeter community.
+                Use the dashboard to track recent activity, join groups and challenges, earn
+                badges, and level up your pet as you keep logging actions.
               </p>
             </div>
 
@@ -97,40 +97,40 @@ export default function HomePage() {
               <div className="flex items-center justify-between">
                 <div>
                   <div className="text-xs uppercase tracking-[0.2em] text-emerald-300">
-                    Live season snapshot
+                    In the app
                   </div>
-                  <div className="mt-2 text-2xl font-semibold">Spring Carbon Cup</div>
+                  <div className="mt-2 text-2xl font-semibold">What you can do</div>
                 </div>
                 <div className="rounded-2xl bg-white/10 px-3 py-2 text-xs text-emerald-100">
-                  Weekly reset
+                  Real data
                 </div>
               </div>
 
               <div className="mt-6 grid gap-3 sm:grid-cols-2">
                 <div className="rounded-2xl bg-white/10 p-4">
-                  <div className="text-xs text-gray-300">Top habit this week</div>
-                  <div className="mt-2 text-lg font-medium">Walk or cycle to campus</div>
-                  <div className="mt-1 text-xs text-gray-300">Most repeated action across players</div>
+                  <div className="text-xs text-gray-300">Dashboard</div>
+                  <div className="mt-2 text-lg font-medium">Review your recent activity</div>
+                  <div className="mt-1 text-xs text-gray-300">See actions, badges, charts, and your pet status</div>
                 </div>
                 <div className="rounded-2xl bg-emerald-500/15 p-4">
-                  <div className="text-xs text-emerald-100">Current challenge</div>
-                  <div className="mt-2 text-lg font-medium">Reusable swap streak</div>
-                  <div className="mt-1 text-xs text-emerald-100/80">Submit evidence to unlock bonus points</div>
+                  <div className="text-xs text-emerald-100">Challenges</div>
+                  <div className="mt-2 text-lg font-medium">Join personal or group tasks</div>
+                  <div className="mt-1 text-xs text-emerald-100/80">Some submissions can include notes or image evidence</div>
                 </div>
               </div>
 
               <div className="mt-6 space-y-3">
                 <div className="flex items-center justify-between rounded-2xl bg-white/5 px-4 py-3 text-sm">
-                  <span>Hall leaderboard</span>
-                  <span className="font-medium text-emerald-200">Birks Grange in front</span>
+                  <span>Groups</span>
+                  <span className="font-medium text-emerald-200">Join one, invite people, or leave</span>
                 </div>
                 <div className="flex items-center justify-between rounded-2xl bg-white/5 px-4 py-3 text-sm">
-                  <span>Personal progress</span>
-                  <span className="font-medium text-emerald-200">Track streaks, points, and CO2e</span>
+                  <span>Leaderboards</span>
+                  <span className="font-medium text-emerald-200">Compare users and groups by points</span>
                 </div>
                 <div className="flex items-center justify-between rounded-2xl bg-white/5 px-4 py-3 text-sm">
-                  <span>Moderation support</span>
-                  <span className="font-medium text-emerald-200">Evidence-ready challenge submissions</span>
+                  <span>Pet and shop</span>
+                  <span className="font-medium text-emerald-200">Buy items, equip them, and keep the pet active</span>
                 </div>
               </div>
             </div>

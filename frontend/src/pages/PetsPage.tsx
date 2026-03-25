@@ -7,6 +7,7 @@ import { createPet, getMyPet, getPetCatalog, revivePet, updatePetNickname } from
 import type { InventoryItem, Pet, PetCatalogEntry } from "../api/types";
 import { resolveGameAssetUrl } from "../utils/gameAssetUrl";
 
+// api returns a plain error string for this case so we have to sniff the message
 function isMissingPetError(error: unknown) {
   return error instanceof Error && /no pet found|user has no pet/i.test(error.message);
 }
@@ -68,6 +69,8 @@ function StatCard({
   );
 }
 
+// spent ages getting this right - hat needs to be above hair, shoes below clothing, etc.
+// anything not listed defaults to 25 which sits it roughly in the middle
 const ACCESSORY_LAYER_ORDER: Record<string, number> = {
   background: 0,
   body: 5,
@@ -152,6 +155,7 @@ export default function PetsPage() {
       setError(null);
 
       try {
+        // load balance, pet and catalog together - inventory has to wait until we know there's a pet
         const [coinResult, petResult, catalogResult] = await Promise.allSettled([
           getCoinBalance(),
           getMyPet().catch((err) => {
@@ -296,13 +300,14 @@ export default function PetsPage() {
     setMessage(null);
     try {
       if (item.equipped) {
-        await unequipInventoryItem(item.items.item_id);
+        // pet_item_id is the inventory entry id - NOT items.item_id which is the shop catalogue item
+        await unequipInventoryItem(item.pet_item_id);
         setMessage(`${item.items.name} unequipped.`);
       } else {
-        await equipInventoryItem(item.items.item_id);
+        await equipInventoryItem(item.pet_item_id);
         setMessage(`${item.items.name} equipped.`);
       }
-      await refreshInventory();
+      await refreshInventory(); // keep the loadout panel and avatar in sync
     } catch (err) {
       setError(err instanceof Error ? err.message : "Could not update inventory.");
     } finally {
@@ -329,7 +334,7 @@ export default function PetsPage() {
   if (!pet) {
     return (
       <PageShell title="Pets" subtitle="Adopt a companion and start building its profile.">
-        <div className="grid gap-6 xl:grid-cols-[1fr_0.42fr]">
+        <div className="grid gap-6 xl:grid-cols-[1.12fr_0.42fr]">
           <section className="app-card p-6">
             <div className="app-chip">Adoption</div>
             <h2 className="mt-3 app-section-title">Choose your starter pet</h2>
@@ -337,22 +342,35 @@ export default function PetsPage() {
               Pick a starter type and give your companion a name to begin its journey.
             </p>
 
-            <div className="mt-6 grid gap-4 md:grid-cols-3">
+            <div className="mt-6 grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
               {petCatalog.map((option) => (
                 <button
                   key={option.pet_type}
                   type="button"
                   onClick={() => setAdoptType(option.pet_type)}
-                  className={`rounded-[1.6rem] border p-5 text-left transition ${
+                  className={`aspect-square rounded-[1.6rem] border p-4 text-left transition ${
                     adoptType === option.pet_type
                       ? "border-transparent bg-[rgb(var(--app-brand))] text-white shadow-sm"
                       : "border-[rgb(var(--app-line))] bg-white text-[rgb(var(--app-ink))]"
-                  }`}
+                  } flex flex-col`}
                 >
-                  <div className="text-xs font-semibold uppercase tracking-[0.18em] opacity-80">
+                  <div className="aspect-square overflow-hidden rounded-[1.2rem] bg-[rgb(var(--app-soft))]">
+                    {option.image_url ? (
+                      <img
+                        src={option.image_url}
+                        alt={option.name}
+                        className="h-full w-full object-cover"
+                      />
+                    ) : (
+                      <div className="flex h-full w-full items-center justify-center text-3xl font-semibold">
+                        {option.name.slice(0, 1).toUpperCase()}
+                      </div>
+                    )}
+                  </div>
+                  <div className="mt-4 text-xs font-semibold uppercase tracking-[0.18em] opacity-80">
                     Starter
                   </div>
-                  <div className="mt-3 text-2xl font-semibold">{option.name}</div>
+                  <div className="mt-2 text-2xl font-semibold">{option.name}</div>
                   <div className="mt-2 text-sm opacity-90">
                     {option.description || option.pet_type}
                   </div>
@@ -407,7 +425,7 @@ export default function PetsPage() {
   return (
     <PageShell
       title="Pets"
-      subtitle="Manage your companion, its wellbeing, and its inventory."
+      subtitle="Check your pet, rename it, and manage what it has equipped."
       right={
         <div className="rounded-full bg-[rgb(var(--app-ink))] px-4 py-2 text-sm font-semibold text-white">
           Balance: {coins ?? 0} CG67coin
@@ -420,7 +438,7 @@ export default function PetsPage() {
             <div className="grid gap-0 lg:grid-cols-[0.9fr_1.1fr]">
               <div className="bg-[linear-gradient(145deg,rgba(221,243,229,0.95),rgba(245,236,215,0.72))] p-6">
                 <div className="rounded-[1.6rem] bg-white/80 p-5">
-                  <div className="app-chip">Companion profile</div>
+                  <div className="app-chip">Pet</div>
                   <div className="mt-4 flex items-center gap-4">
                     <PetAvatar pet={pet} equippedItems={equippedItems} />
                     <div className="min-w-0">
@@ -468,32 +486,8 @@ export default function PetsPage() {
 
           <div className="grid gap-6 lg:grid-cols-[0.95fr_1.05fr]">
             <div className="app-card p-6">
-              <div className="app-chip">Identity studio</div>
-              <h2 className="mt-3 app-section-title">Rename your companion</h2>
-              <input
-                className="mt-5 w-full rounded-[1.35rem] border border-[rgb(var(--app-line))] bg-white px-4 py-3 text-sm text-[rgb(var(--app-ink))]"
-                value={nicknameDraft}
-                onChange={(e) => setNicknameDraft(e.target.value)}
-                placeholder="Pet nickname"
-              />
-              <button
-                type="button"
-                onClick={handleSaveNickname}
-                disabled={saving}
-                className="mt-4 rounded-[1.35rem] bg-[rgb(var(--app-brand))] px-5 py-3 text-sm font-semibold text-white disabled:opacity-50"
-              >
-                {saving ? "Saving..." : "Save nickname"}
-              </button>
-
-              <div className="mt-6 rounded-[1.35rem] bg-[rgb(var(--app-soft))] p-4 text-sm app-muted">
-                Adopted on {new Date(pet.adopted_at).toLocaleDateString()}. Status:
-                <span className="ml-1 font-semibold text-[rgb(var(--app-ink))]">{pet.status}</span>.
-              </div>
-            </div>
-
-            <div className="app-card p-6">
-              <div className="app-chip">Care controls</div>
-              <h2 className="mt-3 app-section-title">Revive when needed</h2>
+              <div className="app-chip">Revive</div>
+              <h2 className="mt-3 app-section-title">Bring your pet back if needed</h2>
               <p className="mt-3 text-sm leading-7 app-muted">
                 If your companion goes down, revive it here and get it moving again.
               </p>
@@ -521,14 +515,38 @@ export default function PetsPage() {
                 </div>
               </div>
             </div>
+
+            <div className="app-card p-6">
+              <div className="app-chip">Rename</div>
+              <h2 className="mt-3 app-section-title">Update your pet's name</h2>
+              <input
+                className="mt-5 w-full rounded-[1.35rem] border border-[rgb(var(--app-line))] bg-white px-4 py-3 text-sm text-[rgb(var(--app-ink))]"
+                value={nicknameDraft}
+                onChange={(e) => setNicknameDraft(e.target.value)}
+                placeholder="Pet nickname"
+              />
+              <button
+                type="button"
+                onClick={handleSaveNickname}
+                disabled={saving}
+                className="mt-4 rounded-[1.35rem] bg-[rgb(var(--app-brand))] px-5 py-3 text-sm font-semibold text-white disabled:opacity-50"
+              >
+                {saving ? "Saving..." : "Save nickname"}
+              </button>
+
+              <div className="mt-6 rounded-[1.35rem] bg-[rgb(var(--app-soft))] p-4 text-sm app-muted">
+                Adopted on {new Date(pet.adopted_at).toLocaleDateString()}. Status:
+                <span className="ml-1 font-semibold text-[rgb(var(--app-ink))]">{pet.status}</span>.
+              </div>
+            </div>
           </div>
 
           <div className="grid gap-6 lg:grid-cols-[0.9fr_1.1fr]">
             <div className="app-card p-6">
               <div className="flex items-center justify-between gap-3">
                 <div>
-                  <div className="app-chip">Equipped loadout</div>
-                  <h2 className="mt-3 app-section-title">Active accessories</h2>
+                  <div className="app-chip">Equipped</div>
+                  <h2 className="mt-3 app-section-title">Currently wearing</h2>
                 </div>
                 <div className="rounded-full bg-[rgb(var(--app-soft))] px-3 py-2 text-xs font-semibold uppercase tracking-wide text-[rgb(var(--app-ink))]">
                   {equippedItems.length} active

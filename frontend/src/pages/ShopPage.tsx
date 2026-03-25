@@ -8,6 +8,7 @@ import { buyShopItem, getShopItems } from "../api/shop";
 import type { InventoryItem, ShopItem } from "../api/types";
 import { resolveGameAssetUrl } from "../utils/gameAssetUrl";
 
+// no specific error code for this from the api so checking the message is the only option
 function isMissingPetError(error: unknown) {
   return error instanceof Error && /no pet found|user has no pet/i.test(error.message);
 }
@@ -37,18 +38,18 @@ function InsufficientFundsModal({
       >
         <div className="grid gap-0 lg:grid-cols-[0.92fr_1.08fr]">
           <div className="bg-[linear-gradient(160deg,rgba(248,113,113,0.18),rgba(250,204,21,0.16))] p-6 lg:p-8">
-            <div className="app-chip bg-white/80 text-rose-700">Purchase blocked</div>
+            <div className="app-chip bg-white/80 text-rose-700">Not enough coin</div>
             <h2
               id="insufficient-funds-title"
               className="mt-4 text-4xl font-semibold tracking-tight text-[rgb(var(--app-ink))]"
             >
-              Your companion wallet is empty
+              You can't buy this yet
             </h2>
             <p
               id="insufficient-funds-description"
               className="mt-4 max-w-md text-sm leading-7 app-muted"
             >
-              You need more CG67coin before you can buy this item.
+              You need a bit more CG67coin before this item can be bought.
             </p>
           </div>
 
@@ -207,11 +208,12 @@ export default function ShopPage() {
     try {
       const res = await buyShopItem(item.item_id);
       setCoins(res.new_coin_balance);
-      await refreshInventory();
+      await refreshInventory(); // so the "Owned" badge updates immediately
       setMessage(res.message);
     } catch (err) {
       const message = err instanceof Error ? err.message : "Purchase failed.";
       if (/not enough coins/i.test(message)) {
+        // show the modal instead of a plain error message for coin shortfalls
         setInsufficientFundsItem(item);
       } else {
         setError(message);
@@ -249,7 +251,7 @@ export default function ShopPage() {
 
       <PageShell
         title="Shop"
-        subtitle="Spend your balance on pet accessories and upgrades."
+        subtitle="Buy pet items with the coin you've earned."
         right={
           <div className="rounded-full bg-[rgb(var(--app-ink))] px-4 py-2 text-sm font-semibold text-white">
             Balance: {coins ?? 0} CG67coin

@@ -18,13 +18,13 @@ import ShopPage from "./pages/ShopPage";
 export default function App() {
   return (
     <Routes>
-      {/* Public */}
+      {/* Public routes */}
       <Route path="/login" element={<LoginPage />} />
       <Route path="/signup" element={<SignupPage />} />
       <Route path="/home" element={<HomePage />} />
       <Route path="/" element={<HomePage />} />
 
-      {/* App (logged-in area) */}
+      {/* Protected - RequireAuth redirects to /login if not authenticated */}
       <Route element={<RequireAuth />}>
         <Route path="/app" element={<AppLayout />}>
           <Route path="dashboard" element={<DashboardPage />} />
@@ -40,7 +40,7 @@ export default function App() {
         </Route>
       </Route>
 
-      {/* Default */}
+      {/* was going to redirect / to login but homepage works better for first-time visitors */}
       {/*<Route path="/" element={<Navigate to="/login" replace />} /> */}
       <Route path="*" element={<div className="p-6">Not found</div>} />
     </Routes>

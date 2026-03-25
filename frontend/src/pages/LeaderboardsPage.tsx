@@ -72,7 +72,7 @@ export default function LeaderboardsPage() {
   return (
     <PageShell
       title="Leaderboards"
-      subtitle="Track who is setting the pace across campus actions, streaks, and community momentum."
+      subtitle="Compare points across users and groups."
       right={
         <div className="flex gap-2">
           <button
@@ -112,7 +112,7 @@ export default function LeaderboardsPage() {
       <div className="app-card p-6">
         <div className="mb-5 flex items-center justify-between">
           <div>
-            <div className="app-chip">Season ranking</div>
+            <div className="app-chip">Rankings</div>
             <h2 className="mt-3 app-section-title">
               {scope === "groups" ? "Group leaderboard" : "Member leaderboard"}
             </h2>
