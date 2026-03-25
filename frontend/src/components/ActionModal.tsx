@@ -53,6 +53,7 @@ export default function ActionModal({
   onClose?: () => void;
 }) {
   const toneClasses = getToneClasses(tone);
+  // no children = single-column layout, children = two-column with content on the right
   const isCompact = !children;
 
   return (
@@ -65,15 +66,17 @@ export default function ActionModal({
         className={`w-full ${isCompact ? "max-w-2xl" : "max-w-4xl"} overflow-hidden rounded-[2rem] border border-white/60 ${toneClasses.shell} shadow-[0_30px_90px_rgba(15,23,42,0.24)]`}
         role="dialog"
         aria-modal="true"
+        aria-labelledby="action-modal-title"
+        aria-describedby="action-modal-desc"
         onClick={(event) => event.stopPropagation()}
       >
         <div className={`grid gap-0 ${isCompact ? "" : "lg:grid-cols-[0.92fr_1.08fr]"}`}>
           <div className={`${toneClasses.hero} p-6 lg:p-8`}>
             <div className={`app-chip bg-white/80 ${toneClasses.chip}`}>{chip}</div>
-            <h2 className="mt-4 text-4xl font-semibold tracking-tight text-[rgb(var(--app-ink))]">
+            <h2 id="action-modal-title" className="mt-4 text-4xl font-semibold tracking-tight text-[rgb(var(--app-ink))]">
               {title}
             </h2>
-            <p className="mt-4 max-w-md text-sm leading-7 app-muted">{description}</p>
+            <p id="action-modal-desc" className="mt-4 max-w-md text-sm leading-7 app-muted">{description}</p>
             {isCompact && actions ? (
               <div className="mt-6 flex flex-wrap gap-3">{actions}</div>
             ) : null}

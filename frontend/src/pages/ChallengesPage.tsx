@@ -40,6 +40,8 @@ function readFileAsDataUrl(file: File) {
 export default function ChallengesPage() {
   const { user } = useAuth();
   const [tab, setTab] = useState<Tab>("Group challenges");
+  // time is shown in the header label but doesn't affect what gets fetched -
+  // the API currently filters by type only, so this is just cosmetic for now
   const [time, setTime] = useState<TimeFilter>("Weekly");
   const [windowFilter, setWindowFilter] = useState<ChallengeWindow>("current");
 
@@ -63,6 +65,7 @@ export default function ChallengesPage() {
         const type = tab === "Group challenges" ? "group" : "personal";
         const res = await getChallenges(type);
         const list = res.challenges || [];
+        console.log(`${type} challenges loaded:`, list.length);
         setChallenges(list);
       } catch (err) {
         setError(err instanceof Error ? err.message : "Failed to load challenges.");
@@ -79,6 +82,8 @@ export default function ChallengesPage() {
     return challenges.filter((challenge) => {
       const isPast = Boolean(challenge.end_date && challenge.end_date < today);
       return windowFilter === "past" ? isPast : !isPast;
+      // also tried filtering by challenge.frequency === time.toLowerCase() here but
+      // the API doesn't consistently populate that field yet
     });
   }, [challenges, windowFilter]);
 
@@ -109,14 +114,14 @@ export default function ChallengesPage() {
       setLoadingSubs(true);
       try {
         const res = await getChallengeSubmissions(selectedId, { limit: 20 });
+        console.log("submissions for", selectedId, res.submissions?.length ?? 0);
         setSubmissions(res.submissions || []);
-      } catch (err) {
+      } catch (e) {
         setModal({
           tone: "danger",
           chip: "Could not load submissions",
           title: "The submissions list did not load",
-          description:
-          err instanceof Error ? err.message : "Failed to load submissions."
+          description: (e as Error).message || "Failed to load submissions.",
         });
       } finally {
         setLoadingSubs(false);
@@ -232,6 +237,7 @@ export default function ChallengesPage() {
       const isGroup = selectedChallenge.challenge_type === "group";
       const groupId = isGroup ? user?.group_id ?? null : null;
 
+      // console.log("submitting to challenge", selectedChallenge.challenge_id, { total, groupId });
       const res = await createChallengeSubmission(selectedChallenge.challenge_id, {
         total_co2e: total,
         evidence: evidencePayload,
@@ -442,6 +448,9 @@ export default function ChallengesPage() {
                       className="w-full text-xs text-gray-700"
                       onChange={handleEvidenceFilesChange}
                     />
+                    <p className="text-xs text-amber-700 bg-amber-50 rounded-lg px-3 py-2">
+                      Please do not include personal information, identifiable faces, or private data in your evidence photos.
+                    </p>
                     {evidenceImages.length > 0 && (
                       <div className="grid grid-cols-2 gap-2 sm:grid-cols-3">
                         {evidenceImages.map((image, index) => (

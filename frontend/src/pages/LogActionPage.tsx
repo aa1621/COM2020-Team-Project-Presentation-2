@@ -20,10 +20,11 @@ export default function LogActionPage() {
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  const selected = useMemo(
-    () => actionTypes.find((a) => a.key === selectedKey) ?? null,
-    [actionTypes, selectedKey]
-  );
+  const selected = useMemo(() => {
+    const match = actionTypes.find((a) => a.key === selectedKey) ?? null;
+    if (match) console.log("selected action:", match.name, match.unit);
+    return match;
+  }, [actionTypes, selectedKey]);
 
   useEffect(() => {
     async function loadActionTypes() {
@@ -33,6 +34,7 @@ export default function LogActionPage() {
         const res = await apiFetch<GetActionTypesResponse>("/action-types");
         setActionTypes(res.actionTypes);
 
+        // console.log("action types loaded", res.actionTypes.map(a => a.key));
         if (res.actionTypes.length > 0) {
           setSelectedKey(res.actionTypes[0].key);
         }
@@ -56,6 +58,8 @@ export default function LogActionPage() {
     if (!Number.isFinite(qty) || qty <= 0) {
       return setError("Quantity must be a positive number.");
     }
+    // if (qty > 1000) return setError("That quantity looks too high, double-check the unit.");
+
 
     setSubmitting(true);
     try {
@@ -119,6 +123,7 @@ export default function LogActionPage() {
             </div>
 
             <button
+              type="button"
               onClick={onSubmit}
               disabled={submitting || loadingTypes}
               className="w-full rounded-2xl bg-[rgb(var(--app-ink))] px-4 py-3 text-sm font-semibold text-white transition hover:opacity-95 disabled:opacity-60"

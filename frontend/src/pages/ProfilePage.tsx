@@ -85,8 +85,8 @@ export default function ProfilePage() {
         setGroups(groupsRes.groups || []);
         setEarnedBadges(earnedRes.badges || []);
         setAllBadges(allRes.badges || []);
-      } catch (err) {
-        setError(err instanceof Error ? err.message : "Failed to load profile details.");
+      } catch {
+        setError("Something went wrong loading your profile.");
       } finally {
         setLoading(false);
       }
@@ -115,6 +115,7 @@ export default function ProfilePage() {
     () => allBadges.filter((badge) => !earnedBadgeIds.has(badge.badge_id)),
     [allBadges, earnedBadgeIds]
   );
+  // const [showLocked, setShowLocked] = useState(false);
 
   return (
     <PageShell

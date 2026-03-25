@@ -44,6 +44,7 @@ export default function LoginPage() {
         identifier: identifier.trim().toLowerCase(),
         password,
       });
+      // console.log("login res", res);
 
       if (!res.session?.access_token) {
         throw new Error("Login succeeded but no session token was returned.");

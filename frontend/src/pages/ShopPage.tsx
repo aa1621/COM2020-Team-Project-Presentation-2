@@ -90,6 +90,8 @@ export default function ShopPage() {
     () => new Set(inventory.map((entry) => entry.items.item_id)),
     [inventory]
   );
+  // tried filtering out already-owned items but testers found it confusing when things disappeared
+  // const availableItems = items.filter((item) => !ownedItemIds.has(item.item_id));
 
   async function refreshInventory() {
     try {
@@ -112,6 +114,7 @@ export default function ShopPage() {
     setModal(null);
     try {
       const res = await buyShopItem(item.item_id);
+      // console.log("buy response", res);
       setCoins(res.new_coin_balance);
       await refreshInventory();
       setModal({

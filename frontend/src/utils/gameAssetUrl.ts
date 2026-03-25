@@ -49,6 +49,8 @@ function buildSupabasePublicUrl(path: string) {
   return `${supabaseUrl}/storage/v1/object/public/${encodeStoragePath(storagePath)}`;
 }
 
+// resolution order: absolute/data/blob URLs pass through untouched,
+// relative paths go to Supabase storage first, then fall back to local bundled assets
 export function resolveGameAssetUrl(rawUrl: string | null | undefined) {
   if (!rawUrl) return null;
 
