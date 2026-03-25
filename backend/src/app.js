@@ -52,7 +52,7 @@ app.get('/health', (req, res) => {
     res.json({status: "ok"});
 });
 app.get('/version', (req, res) => {
-    res.json({version: "week5-demo"});
+    res.json({version: "campus-carbon-prototype"});
 });
 
 // Public - no auth needed

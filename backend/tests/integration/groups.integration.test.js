@@ -7,35 +7,35 @@ const DEMO_USER_ID =
 
 describe("Groups integration test", () => {
   let createdGroupId = null;
+  let groupName = null;
 
   test("creates group in real database", async () => {
-    const groupName = "Integration Test Group";
+    groupName = `Integration Test Group ${Date.now()}`;
 
-    // Call real API
     const res = await request(app)
       .post("/groups")
       .set("x-user-id", DEMO_USER_ID)
       .send({
         name: groupName,
-        type: "society"
+        type: "society",
       });
 
     expect(res.status).toBe(201);
+    expect(res.body.group).toBeDefined();
 
     createdGroupId = res.body.group.group_id;
 
-    // Verify group exists in DB
-    const { data: group } = await supabaseAdmin
+    const { data: group, error } = await supabaseAdmin
       .from("groups")
       .select("*")
       .eq("group_id", createdGroupId)
       .single();
 
+    expect(error).toBeNull();
     expect(group).not.toBeNull();
     expect(group.name).toBe(groupName);
   });
 
-  // Cleanup after test
   afterAll(async () => {
     if (createdGroupId) {
       await supabaseAdmin

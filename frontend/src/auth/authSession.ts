@@ -21,6 +21,7 @@ export type AuthState = {
 const STORAGE_KEY = "auth_user";
 const AUTH_EVENT = "auth-user-changed";
 
+// guards against running in SSR / non-browser environments
 function canUseBrowserStorage() {
   return typeof window !== "undefined" && typeof localStorage !== "undefined";
 }
@@ -38,6 +39,8 @@ function normalizeAuthUser(user: AuthUser): AuthUser {
   };
 }
 
+// handles both old format (bare AuthUser) and new format ({ user, session })
+// kept backwards compat so old stored sessions don't break on refresh
 function parseStoredAuthState(raw: string): AuthState | null {
   try {
     const parsed = JSON.parse(raw) as AuthState | AuthUser;

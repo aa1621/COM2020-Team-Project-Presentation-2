@@ -2,38 +2,46 @@ import { supabaseAdmin, supabaseUser } from "../lib/supabaseClient.js";
 
 export async function checkAndAwardBadges(userId) {
     try {
-        const {data: badges} = await supabaseUser
+
+        console.log("Badge check for user:", userId);
+        const {data: badges} = await supabaseAdmin
             .from("badges")
             .select("*")
             .eq("is_active", true)
             .neq("trigger_type", "manual");
 
-        const {data: earned} = await supabaseUser
+        console.log("Active badges found:", badges?.length ?? 0);
+
+        const {data: earned} = await supabaseAdmin
             .from("user_badges")
             .select("badge_id")
             .eq("user_id", userId);
 
         const alreadyEarned = new Set((earned ?? []).map(b => b.badge_id));
 
-        const {data: user} = await supabaseUser
+        const {data: user} = await supabaseAdmin
             .from("users")
             .select("coins")
             .eq("user_id", userId)
             .single();
 
-        const {data: pet} = await supabaseUser
+        const {data: pet} = await supabaseAdmin
             .from("pets")
             .select("streak, level")
             .eq("user_id", userId)
             .maybeSingle();
 
-        const {data: submissions} = await supabaseUser
+        console.log("Pet stats:", pet);
+
+        const {data: submissions} = await supabaseAdmin
             .from("submissions")
             .select("submission_id", {count: "exact"})
             .eq("user_id", userId)
             .eq("status", "approved");
 
-        const {data: co2Row} = await supabaseUser
+        console.log("Approved submissions:", submissions?.length ?? 0);
+
+        const {data: co2Row} = await supabaseAdmin
             .from("action_logs")
             .select("calculated_co2e")
             .eq("user_id", userId);
@@ -59,9 +67,10 @@ export async function checkAndAwardBadges(userId) {
         }
 
         if (toAward.length > 0) {
-            await supabaseAdmin
+            const {error: upsertErr} = await supabaseAdmin
                 .from("user_badges")
                 .upsert(toAward, { onConflict: "user_id,badge_id" });
+            console.log("Upsert error:", upsertErr);
         }
 
         return toAward;

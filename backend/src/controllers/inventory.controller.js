@@ -76,7 +76,7 @@ export async function equipItem(req, res, next) {
             .from("pet_items")
             .select("pet_item_id, equipped, items(item_id, category)")
             .eq("pet_id", pet.pet_id)
-            .eq("item_id", itemId)
+            .eq("pet_item_id", itemId)
             .maybeSingle();
 
         if (entryErr) return next(entryErr);
@@ -141,7 +141,7 @@ export async function unequipItem(req, res, next) {
             .from("pet_items")
             .select("pet_item_id, equipped")
             .eq("pet_id", pet.pet_id)
-            .eq("item_id", itemId)
+            .eq("pet_item_id", itemId)
             .maybeSingle();
 
         if (entryErr) return next(entryErr);

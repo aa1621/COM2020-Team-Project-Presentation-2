@@ -1,4 +1,4 @@
-import { supabaseUser } from "../lib/supabaseClient.js";
+import { supabaseAdmin, supabaseUser } from "../lib/supabaseClient.js";
  
 /* const DEMO_USER_ID =
     process.env.DEMO_USER_ID || "c1aae9c3-5157-4a26-a7b3-28d8905cfef0";
@@ -19,7 +19,7 @@ export async function getEarnedBadges(req, res, next) {
             return res.status(400).json({error: 'Missing user id. Pass header "x-user-id'});
         }*/
 
-        const {data: badges, error} = await supabaseUser
+        const {data: badges, error} = await supabaseAdmin
             .from("user_badges")
             .select(`
                 user_badge_id,

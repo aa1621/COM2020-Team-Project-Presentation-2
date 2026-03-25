@@ -296,10 +296,10 @@ export default function ProfilePage() {
                 <div>
                   <div className="app-chip">Badges</div>
                   <h2 className="mt-4 text-2xl font-semibold text-[rgb(var(--app-ink))]">
-                    Achievement cabinet
+                    Badges you've earned
                   </h2>
                   <p className="mt-2 text-sm app-muted">
-                    Track what you’ve already unlocked and what’s still available to earn.
+                    See what you already have and what is still left to unlock.
                   </p>
                 </div>
                 <div className="app-stat min-w-[120px] px-4 py-3 text-center">
@@ -345,10 +345,10 @@ export default function ProfilePage() {
                   ) : (
                     <div className="mt-3 rounded-[1.5rem] border border-dashed border-[rgb(var(--app-line))] bg-[rgb(var(--app-soft))]/60 p-5">
                       <div className="text-sm font-semibold text-[rgb(var(--app-ink))]">
-                        No badges unlocked yet
+                        No badges yet
                       </div>
                       <div className="mt-2 text-sm app-muted">
-                        Start logging actions, building streaks, and completing approved challenge submissions to unlock your first badge.
+                        Log actions and complete challenge submissions to unlock your first badge.
                       </div>
                     </div>
                   )}
@@ -387,7 +387,7 @@ export default function ProfilePage() {
                   ) : (
                     <div className="mt-3 rounded-[1.5rem] border border-dashed border-[rgb(var(--app-line))] bg-[rgb(var(--app-soft))]/60 p-5">
                       <div className="text-sm font-semibold text-[rgb(var(--app-ink))]">
-                        You’ve unlocked every active badge
+                        You've unlocked every active badge
                       </div>
                       <div className="mt-2 text-sm app-muted">
                         There are no remaining active badges in the current catalog.

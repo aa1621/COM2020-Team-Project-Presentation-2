@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState, type ChangeEvent } from "react";
 import PageShell from "../components/PageShell";
+import ActionModal from "../components/ActionModal";
 import {
   createChallengeSubmission,
   getChallengeSubmissions,
@@ -15,6 +16,15 @@ import type {
 type Tab = "Group challenges" | "Personal challenges";
 type TimeFilter = "Daily" | "Weekly" | "Monthly" | "Seasonal";
 type ChallengeWindow = "current" | "past";
+type ChallengesModalState =
+  | {
+      tone: "success" | "danger" | "warning";
+      chip: string;
+      title: string;
+      description: string;
+      body?: string;
+    }
+  | null;
 
 const MAX_EVIDENCE_IMAGES = 3;
 
@@ -40,11 +50,10 @@ export default function ChallengesPage() {
   const [loadingSubs, setLoadingSubs] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [submitError, setSubmitError] = useState<string | null>(null);
   const [totalCO2e, setTotalCO2e] = useState("1");
   const [evidenceText, setEvidenceText] = useState("");
   const [evidenceImages, setEvidenceImages] = useState<SubmissionEvidenceImage[]>([]);
-  const [lastResult, setLastResult] = useState<string | null>(null);
+  const [modal, setModal] = useState<ChallengesModalState>(null);
 
   useEffect(() => {
     async function loadChallenges() {
@@ -98,14 +107,17 @@ export default function ChallengesPage() {
     async function loadSubmissions() {
       if (!selectedId) return;
       setLoadingSubs(true);
-      setSubmitError(null);
       try {
         const res = await getChallengeSubmissions(selectedId, { limit: 20 });
         setSubmissions(res.submissions || []);
       } catch (err) {
-        setSubmitError(
+        setModal({
+          tone: "danger",
+          chip: "Could not load submissions",
+          title: "The submissions list did not load",
+          description:
           err instanceof Error ? err.message : "Failed to load submissions."
-        );
+        });
       } finally {
         setLoadingSubs(false);
       }
@@ -115,21 +127,30 @@ export default function ChallengesPage() {
   }, [selectedId]);
 
   async function handleEvidenceFilesChange(e: ChangeEvent<HTMLInputElement>) {
-    setSubmitError(null);
     const files = Array.from(e.target.files || []);
     e.target.value = "";
     if (files.length === 0) return;
 
     const allowedSlots = MAX_EVIDENCE_IMAGES - evidenceImages.length;
     if (allowedSlots <= 0) {
-      setSubmitError(`You can upload up to ${MAX_EVIDENCE_IMAGES} images.`);
+      setModal({
+        tone: "warning",
+        chip: "Too many images",
+        title: "Upload limit reached",
+        description: `You can upload up to ${MAX_EVIDENCE_IMAGES} images.`,
+      });
       return;
     }
 
     const selected = files.slice(0, allowedSlots);
     const nonImage = selected.find((file) => !file.type.startsWith("image/"));
     if (nonImage) {
-      setSubmitError(`"${nonImage.name}" is not an image file.`);
+      setModal({
+        tone: "warning",
+        chip: "Image only",
+        title: "That file can't be used",
+        description: `"${nonImage.name}" is not an image file.`,
+      });
       return;
     }
 
@@ -143,7 +164,12 @@ export default function ChallengesPage() {
       );
       setEvidenceImages((prev) => [...prev, ...mapped]);
     } catch (err) {
-      setSubmitError(err instanceof Error ? err.message : "Failed to load selected images.");
+      setModal({
+        tone: "danger",
+        chip: "Upload failed",
+        title: "The images were not added",
+        description: err instanceof Error ? err.message : "Failed to load selected images.",
+      });
     }
   }
 
@@ -152,26 +178,43 @@ export default function ChallengesPage() {
   }
 
   async function handleSubmit() {
-    setSubmitError(null);
-    setLastResult(null);
-
     if (!user?.user_id) {
-      setSubmitError("Please sign in before submitting.");
+      setModal({
+        tone: "warning",
+        chip: "Sign in required",
+        title: "You need to log in first",
+        description: "Please sign in before submitting.",
+      });
       return;
     }
     if (!selectedChallenge) {
-      setSubmitError("Select a challenge first.");
+      setModal({
+        tone: "warning",
+        chip: "Choose a challenge",
+        title: "No challenge selected",
+        description: "Select a challenge first.",
+      });
       return;
     }
 
     const total = Number(totalCO2e);
     if (!Number.isFinite(total) || total <= 0) {
-      setSubmitError("Total CO2e must be a positive number.");
+      setModal({
+        tone: "warning",
+        chip: "Invalid total",
+        title: "Enter a valid CO2e total",
+        description: "Total CO2e must be a positive number.",
+      });
       return;
     }
 
     if (requiresEvidence && evidenceImages.length === 0 && !evidenceText.trim()) {
-      setSubmitError("This challenge requires evidence. Add a note or at least one image.");
+      setModal({
+        tone: "warning",
+        chip: "Evidence required",
+        title: "Add supporting evidence",
+        description: "This challenge requires evidence. Add a note or at least one image.",
+      });
       return;
     }
 
@@ -192,14 +235,14 @@ export default function ChallengesPage() {
       const res = await createChallengeSubmission(selectedChallenge.challenge_id, {
         total_co2e: total,
         evidence: evidencePayload,
-        groupId,
         group_id: groupId,
-        userId: user.user_id,
-        user_id: user.user_id,
       });
-      setLastResult(
-        `Submitted. Status: ${res.submission.status}. Points: ${res.submission.points}.`
-      );
+      setModal({
+        tone: "success",
+        chip: "Submission sent",
+        title: "Challenge submitted",
+        description: `Status: ${res.submission.status}. Points: ${res.submission.points}.`,
+      });
       setEvidenceText("");
       setEvidenceImages([]);
       const refresh = await getChallengeSubmissions(
@@ -208,14 +251,45 @@ export default function ChallengesPage() {
       );
       setSubmissions(refresh.submissions || []);
     } catch (err) {
-      setSubmitError(err instanceof Error ? err.message : "Submit failed.");
+      setModal({
+        tone: "danger",
+        chip: "Submission failed",
+        title: "The challenge was not submitted",
+        description: err instanceof Error ? err.message : "Submit failed.",
+      });
     } finally {
       setSubmitting(false);
     }
   }
 
   return (
-    <PageShell
+    <>
+      {modal ? (
+        <ActionModal
+          chip={modal.chip}
+          title={modal.title}
+          description={modal.description}
+          tone={modal.tone}
+          onClose={() => setModal(null)}
+          actions={
+            <button
+              type="button"
+              onClick={() => setModal(null)}
+              className="rounded-2xl bg-[rgb(var(--app-ink))] px-5 py-3 text-sm font-semibold text-white"
+            >
+              Close
+            </button>
+          }
+        >
+          {modal.body ? (
+            <div className="rounded-[1.35rem] border border-[rgb(var(--app-line))] bg-white/85 p-5 text-sm app-muted">
+              {modal.body}
+            </div>
+          ) : null}
+        </ActionModal>
+      ) : null}
+
+      <PageShell
       title="Challenges"
       subtitle="Complete challenges to earn points and climb the rankings."
       right={
@@ -403,16 +477,6 @@ export default function ChallengesPage() {
               >
                 {submitting ? "Submitting..." : "Submit"}
               </button>
-              {submitError && (
-                <div className="rounded-xl bg-red-50 p-2 text-xs text-red-700">
-                  {submitError}
-                </div>
-              )}
-              {lastResult && (
-                <div className="rounded-xl bg-green-50 p-2 text-xs text-green-700">
-                  {lastResult}
-                </div>
-              )}
             </div>
 
             <div className="rounded-xl border border-gray-100 bg-white p-4 space-y-2">
@@ -443,6 +507,7 @@ export default function ChallengesPage() {
           </div>
         )}
       </div>
-    </PageShell>
+      </PageShell>
+    </>
   );
 }

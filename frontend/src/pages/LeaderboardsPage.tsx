@@ -7,6 +7,38 @@ import type { GroupLeaderboardEntry, UserLeaderboardEntry } from "../api/types";
 import { resolveGameAssetUrl } from "../utils/gameAssetUrl";
 
 type Scope = "all" | "group" | "groups";
+type TermKey = "overall" | "autumn" | "spring" | "summer";
+
+const TERM_OPTIONS: Array<{
+  key: TermKey;
+  label: string;
+  dates: string;
+  start?: string;
+  end?: string;
+}> = [
+  { key: "overall", label: "Overall", dates: "All logged activity" },
+  {
+    key: "autumn",
+    label: "Autumn term",
+    dates: "Monday 22 September 2025 - Friday 12 December 2025",
+    start: "2025-09-22",
+    end: "2025-12-12",
+  },
+  {
+    key: "spring",
+    label: "Spring term",
+    dates: "Monday 5 January 2026 - Friday 27 March 2026",
+    start: "2026-01-05",
+    end: "2026-03-27",
+  },
+  {
+    key: "summer",
+    label: "Summer term",
+    dates: "Monday 27 April 2026 - Friday 12 June 2026",
+    start: "2026-04-27",
+    end: "2026-06-12",
+  },
+];
 
 function formatLeaderboardPoints(value: number) {
   return Math.round(value);
@@ -19,7 +51,10 @@ export default function LeaderboardsPage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [scope, setScope] = useState<Scope>("all");
+  const [term, setTerm] = useState<TermKey>("overall");
   const [myPetName, setMyPetName] = useState<string | null>(null);
+
+  const selectedTerm = TERM_OPTIONS.find((option) => option.key === term) ?? TERM_OPTIONS[0];
 
   useEffect(() => {
     let cancelled = false;
@@ -49,13 +84,21 @@ export default function LeaderboardsPage() {
       setLoading(true);
       setError(null);
       try {
+        const query = {
+          start: selectedTerm.start,
+          end: selectedTerm.end,
+        };
+
         if (scope === "groups") {
-          const res = await getGroupLeaderboards();
+          const res = await getGroupLeaderboards(query);
           setGroupEntries(res.leaderboards || []);
           setEntries([]);
         } else {
           const groupId = scope === "group" ? user?.group_id || undefined : undefined;
-          const res = await getUserLeaderboards(groupId);
+          const res = await getUserLeaderboards({
+            ...query,
+            groupId,
+          });
           setEntries(res.leaderboards || []);
           setGroupEntries([]);
         }
@@ -67,14 +110,14 @@ export default function LeaderboardsPage() {
     }
 
     load();
-  }, [scope, user]);
+  }, [scope, selectedTerm.end, selectedTerm.start, user?.group_id]);
 
   return (
     <PageShell
       title="Leaderboards"
-      subtitle="Track who is setting the pace across campus actions, streaks, and community momentum."
+      subtitle="Compare points across users and groups, or switch to a university term view."
       right={
-        <div className="flex gap-2">
+        <div className="flex flex-wrap items-center gap-2">
           <button
             onClick={() => setScope("all")}
             className={`rounded-full px-4 py-2 text-xs font-semibold uppercase tracking-wide ${
@@ -106,16 +149,29 @@ export default function LeaderboardsPage() {
           >
             Groups
           </button>
+          <select
+            className="rounded-full border border-[rgb(var(--app-line))] bg-white px-4 py-2 text-xs font-semibold uppercase tracking-wide text-[rgb(var(--app-ink))]"
+            value={term}
+            onChange={(e) => setTerm(e.target.value as TermKey)}
+            aria-label="Leaderboard term"
+          >
+            {TERM_OPTIONS.map((option) => (
+              <option key={option.key} value={option.key}>
+                {option.label}
+              </option>
+            ))}
+          </select>
         </div>
       }
     >
       <div className="app-card p-6">
-        <div className="mb-5 flex items-center justify-between">
+        <div className="mb-5 flex flex-wrap items-start justify-between gap-3">
           <div>
-            <div className="app-chip">Season ranking</div>
+            <div className="app-chip">Rankings</div>
             <h2 className="mt-3 app-section-title">
               {scope === "groups" ? "Group leaderboard" : "Member leaderboard"}
             </h2>
+            <div className="mt-2 text-sm app-muted">{selectedTerm.dates}</div>
           </div>
           <div className="text-sm app-muted">
             {scope === "all"

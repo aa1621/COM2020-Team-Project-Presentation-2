@@ -9,6 +9,7 @@ import { getUserLeaderboards } from "../api/leaderboards";
 import { useAuth } from "../auth/AuthProvider";
 import PageShell from "../components/PageShell";
 import { createPet, getMyPet, getPetCatalog } from "../api/pets";
+import { resolveGameAssetUrl } from "../utils/gameAssetUrl";
 import type {
   ActionType,
   Challenge,
@@ -25,6 +26,7 @@ function formatDateLabel(isoDate: string) {
   return isoDate.slice(5);
 }
 
+// had to switch to UTC methods here - was getting off-by-one date errors for anyone not in GMT
 function toIsoDateUtc(date: Date) {
   const y = date.getUTCFullYear();
   const m = String(date.getUTCMonth() + 1).padStart(2, "0");
@@ -43,6 +45,7 @@ function buildDateRange(days: number) {
   return out;
 }
 
+// api doesn't give us a proper status code for "no pet" - just a plain error message
 function isMissingPetError(error: unknown) {
   return error instanceof Error && /no pet found|user has no pet/i.test(error.message);
 }
@@ -55,6 +58,7 @@ function isCurrentChallenge(challenge: Challenge, today: string) {
 
 function formatShortDate(date: string | null) {
   if (!date) return "No deadline";
+  // T00:00:00 forces local time parsing - without it JS treats it as UTC midnight and the date shows a day early
   return new Date(`${date}T00:00:00`).toLocaleDateString("en-GB", {
     day: "numeric",
     month: "short",
@@ -65,6 +69,12 @@ function formatLeaderboardPoints(value: number) {
   return Math.round(value);
 }
 
+function getDefaultPetNickname(displayName: string | null | undefined, username: string | null | undefined) {
+  const baseName = (displayName || username || "Student").trim();
+  return `${baseName}'s Pet`;
+}
+
+// first-time setup modal - intentionally blocking, no way to dismiss without picking a pet
 function PetSetupModal({
   nickname,
   onChangeNickname,
@@ -92,6 +102,7 @@ function PetSetupModal({
     document.body.style.overflow = "hidden";
     nicknameInputRef.current?.focus();
 
+    // without this tab just escapes the modal and focuses random stuff behind it
     function handleKeyDown(event: KeyboardEvent) {
       if (event.key !== "Tab" || !dialogRef.current) return;
 
@@ -118,7 +129,7 @@ function PetSetupModal({
 
     document.addEventListener("keydown", handleKeyDown);
     return () => {
-      document.body.style.overflow = previousOverflow;
+      document.body.style.overflow = previousOverflow; // don't forget this or the page stays locked
       document.removeEventListener("keydown", handleKeyDown);
     };
   }, []);
@@ -130,13 +141,13 @@ function PetSetupModal({
     >
       <div
         ref={dialogRef}
-        className="w-full max-w-4xl overflow-hidden rounded-[2rem] border border-white/60 bg-[linear-gradient(145deg,rgba(244,252,246,0.98),rgba(255,248,234,0.98))] shadow-[0_30px_90px_rgba(15,23,42,0.24)]"
+        className="flex max-h-[min(92vh,860px)] w-full max-w-5xl flex-col overflow-hidden rounded-[2rem] border border-white/60 bg-[linear-gradient(145deg,rgba(244,252,246,0.98),rgba(255,248,234,0.98))] shadow-[0_30px_90px_rgba(15,23,42,0.24)]"
         role="dialog"
         aria-modal="true"
         aria-labelledby="pet-setup-title"
         aria-describedby="pet-setup-description"
       >
-        <div className="grid gap-0 lg:grid-cols-[0.92fr_1.08fr]">
+        <div className="grid min-h-0 flex-1 gap-0 lg:grid-cols-[0.84fr_1.16fr]">
           <div className="bg-[linear-gradient(160deg,rgba(16,185,129,0.18),rgba(250,204,21,0.15))] p-6 lg:p-8">
             <div className="app-chip bg-white/80">Companion setup</div>
             <h2 id="pet-setup-title" className="mt-4 text-4xl font-semibold tracking-tight text-[rgb(var(--app-ink))]">
@@ -147,12 +158,13 @@ function PetSetupModal({
             </p>
           </div>
 
-          <div className="p-6 lg:p-8">
+          <div className="flex min-h-0 flex-col p-6 lg:p-8">
             <fieldset>
               <legend className="text-sm font-medium text-[rgb(var(--app-ink))]">
                 Choose a companion type
               </legend>
-              <div className="mt-4 grid gap-4 md:grid-cols-3">
+              <div className="mt-4 max-h-[min(46vh,420px)] overflow-y-auto pr-2">
+              <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
               {petCatalog.map((option) => (
                 <button
                   key={option.pet_type}
@@ -160,34 +172,35 @@ function PetSetupModal({
                   onClick={() => onChooseType(option.pet_type)}
                   aria-pressed={petType === option.pet_type}
                   aria-label={`Choose ${option.name}`}
-                  className={`rounded-[1.6rem] border p-5 text-left transition ${
+                  className={`aspect-square rounded-[1.6rem] border p-4 text-left transition ${
                     petType === option.pet_type
                       ? "border-transparent bg-[rgb(var(--app-brand))] text-white shadow-sm"
                       : "border-[rgb(var(--app-line))] bg-white text-[rgb(var(--app-ink))]"
-                  }`}
+                  } flex flex-col`}
                 >
-                  <div className="overflow-hidden rounded-[1.2rem] bg-[rgb(var(--app-soft))]">
+                  <div className="aspect-square overflow-hidden rounded-[1.2rem] bg-[rgb(var(--app-soft))]">
                     {option.image_url ? (
                       <img
                         src={option.image_url}
                         alt={option.name}
-                        className="h-28 w-full object-cover"
+                        className="h-full w-full object-cover"
                       />
                     ) : (
-                      <div className="flex h-28 w-full items-center justify-center text-3xl font-semibold">
+                      <div className="flex h-full w-full items-center justify-center text-3xl font-semibold">
                         {option.name.slice(0, 1).toUpperCase()}
                       </div>
                     )}
                   </div>
-                  <div className="text-xs font-semibold uppercase tracking-[0.18em] opacity-80">
+                  <div className="mt-4 text-xs font-semibold uppercase tracking-[0.18em] opacity-80">
                     Starter
                   </div>
-                  <div className="mt-3 text-2xl font-semibold">{option.name}</div>
+                  <div className="mt-2 text-2xl font-semibold">{option.name}</div>
                   <div className="mt-2 text-sm opacity-90">
                     {option.description || option.pet_type}
                   </div>
                 </button>
               ))}
+              </div>
               </div>
             </fieldset>
 
@@ -249,13 +262,14 @@ export default function DashboardPage() {
   const [groupChallenges, setGroupChallenges] = useState<Challenge[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  // pet setup modal state (only relevant if they haven't adopted yet)
   const [petSetupType, setPetSetupType] = useState("");
   const [petSetupNickname, setPetSetupNickname] = useState("");
   const [petSetupSubmitting, setPetSetupSubmitting] = useState(false);
   const [petSetupError, setPetSetupError] = useState<string | null>(null);
 
   const [dateRange, setDateRange] = useState<DateRangeOption>(7);
-  const [category, setCategory] = useState("all");
+  const [category, setCategory] = useState("all"); // "all" means no filter applied
 
   const dateKeys = useMemo(() => buildDateRange(dateRange), [dateRange]);
 
@@ -273,6 +287,7 @@ export default function DashboardPage() {
     return ["all", ...Array.from(set).sort()];
   }, [actionTypes]);
 
+  // fire off all the dashboard requests at once - action types + catalog are required, everything else can fail quietly
   useEffect(() => {
     let cancelled = false;
     async function load() {
@@ -293,12 +308,12 @@ export default function DashboardPage() {
           apiFetch<GetActionTypesResponse>("/action-types"),
           getCoinBalance(),
           getMyPet().catch((err) => {
-            if (isMissingPetError(err)) return null;
+            if (isMissingPetError(err)) return null; // no pet = show the setup modal, not an error
             throw err;
           }),
           getPetCatalog(),
           getEarnedBadges(),
-          getUserLeaderboards(user.group_id || undefined),
+          getUserLeaderboards({ groupId: user.group_id || undefined }),
           getChallenges("personal"),
           getChallenges("group"),
         ]);
@@ -330,7 +345,10 @@ export default function DashboardPage() {
           setPersonalChallenges(personalRes?.challenges || []);
           setGroupChallenges(groupRes?.challenges || []);
           setPetSetupType((current) => current || catalogRes.pets?.[0]?.pet_type || "");
-          setPetSetupNickname((petRes?.pet?.nickname || user.display_name || user.username || "").trim());
+          setPetSetupNickname(
+            (petRes?.pet?.nickname ||
+              getDefaultPetNickname(user.display_name, user.username)).trim()
+          );
         }
       } catch (err) {
         if (!cancelled) {
@@ -347,6 +365,7 @@ export default function DashboardPage() {
     };
   }, [user?.user_id]);
 
+  // kept separate so switching date range only re-fetches the logs, not the whole page
   useEffect(() => {
     let cancelled = false;
     async function loadLogs() {
@@ -432,6 +451,7 @@ export default function DashboardPage() {
 
     return timed.sort((a, b) => String(a.end_date).localeCompare(String(b.end_date)))[0] ?? null;
   }, [currentGroupChallenges, currentPersonalChallenges]);
+  // figures out leader / you / person just below for the compact leaderboard panel on the dashboard
   const leaderboardContext = useMemo(() => {
     if (!user?.user_id || leaderboardEntries.length === 0) {
       return {
@@ -502,21 +522,20 @@ export default function DashboardPage() {
 
       <PageShell
         title="Dashboard"
-        subtitle="Your main hub for carbon progress, companion status, and weekly momentum."
+        subtitle="A quick look at your recent actions, pet status, and current challenges."
       >
       <div className="space-y-7">
         <section className="app-card overflow-hidden">
         <div className="grid gap-0 lg:grid-cols-[0.92fr_1.08fr]">
           <div className="bg-[linear-gradient(135deg,rgba(221,243,229,0.95),rgba(245,236,215,0.72))] p-6">
-            <div className="space-y-4 rounded-[1.6rem] bg-white/78 p-5 backdrop-blur">
-              <div className="app-chip">Progress snapshot</div>
+            <div className="space-y-4 rounded-[1.6rem] bg-white/75 p-5 backdrop-blur">
+              <div className="app-chip">Overview</div>
               <div>
                 <h2 className="text-3xl font-semibold tracking-tight text-[rgb(var(--app-ink))]">
                   Hi {displayName}
                 </h2>
                 <p className="mt-2 max-w-md text-sm app-muted">
-                  Here is your current low-carbon momentum across actions, pet progress, and
-                  weekly consistency.
+                  Here's what your activity has looked like recently and how your pet is doing.
                 </p>
               </div>
               <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
@@ -561,9 +580,10 @@ export default function DashboardPage() {
               <div className="sm:col-span-3">
                 <div className="app-card-soft flex items-center gap-4 p-4">
                   <div className="flex h-20 w-20 items-center justify-center overflow-hidden rounded-[1.2rem] bg-white text-2xl font-semibold text-[rgb(var(--app-ink))]">
-                    {pet.image_url ? (
+                    {/* image_url is just a filename from the db, needs resolving against bundled assets */}
+                    {resolveGameAssetUrl(pet.image_url) ? (
                       <img
-                        src={pet.image_url}
+                        src={resolveGameAssetUrl(pet.image_url) || undefined}
                         alt={pet.nickname}
                         className="h-full w-full object-cover"
                       />
@@ -572,7 +592,7 @@ export default function DashboardPage() {
                     )}
                   </div>
                   <div className="min-w-0">
-                    <div className="text-xs uppercase tracking-[0.16em] app-muted">Pet companion</div>
+                    <div className="text-xs uppercase tracking-[0.16em] app-muted">Your pet</div>
                     <div className="truncate text-2xl font-semibold text-[rgb(var(--app-ink))]">
                       {pet.nickname}
                     </div>
@@ -644,13 +664,13 @@ export default function DashboardPage() {
           <div className="flex flex-wrap items-start justify-between gap-3">
             <div>
               <div className="app-chip">Badges</div>
-              <h2 className="mt-3 app-section-title">Recent achievements</h2>
+              <h2 className="mt-3 app-section-title">Latest unlocks</h2>
               <p className="mt-2 text-sm app-muted">
-                Keep an eye on what you’ve unlocked recently and how your progress is stacking up.
+                The most recent badges you've picked up from actions and submissions.
               </p>
             </div>
             <Link to="/app/profile" className="app-button-secondary">
-              Open badge cabinet
+              View all badges
             </Link>
           </div>
 
@@ -687,10 +707,10 @@ export default function DashboardPage() {
             {earnedBadges.length === 0 ? (
               <div className="app-card-soft p-4 sm:col-span-2 xl:col-span-3">
                 <div className="text-sm font-semibold text-[rgb(var(--app-ink))]">
-                  No badges unlocked yet
+                  No badges yet
                 </div>
                 <div className="mt-2 text-sm app-muted">
-                  Your first badge will appear here once you build up enough actions, streaks, or approved submissions.
+                  Your first badge will show up here once you've logged a bit more activity.
                 </div>
               </div>
             ) : null}
@@ -701,12 +721,12 @@ export default function DashboardPage() {
           <div className="app-card p-6">
             <div className="flex flex-wrap items-start justify-between gap-3">
               <div>
-                <div className="app-chip">Group position</div>
-                <h2 className="mt-3 app-section-title">Competitive snapshot</h2>
+                <div className="app-chip">Leaderboard</div>
+                <h2 className="mt-3 app-section-title">Your group standing</h2>
                 <p className="mt-2 text-sm app-muted">
                   {user?.group_id
-                    ? "Your current standing within your group leaderboard."
-                    : "Join a group to unlock group-only leaderboard context."}
+                    ? "Where you currently sit in your group's leaderboard."
+                    : "Join a group to compare your points with other members."}
                 </p>
               </div>
               <Link to="/app/leaderboards" className="app-button-secondary">
@@ -767,7 +787,7 @@ export default function DashboardPage() {
                     </div>
                     {!leaderboardContext.below ? (
                       <div className="mt-1 text-sm app-muted">
-                        You’re holding the final visible spot in this leaderboard view.
+                        You're holding the last visible position in this view.
                       </div>
                     ) : null}
                   </div>
@@ -784,10 +804,10 @@ export default function DashboardPage() {
             ) : (
               <div className="mt-5 rounded-[1.5rem] border border-dashed border-[rgb(var(--app-line))] bg-[rgb(var(--app-soft))]/60 p-5">
                 <div className="text-sm font-semibold text-[rgb(var(--app-ink))]">
-                  Ranking context not available yet
+                  Ranking data not available yet
                 </div>
                 <div className="mt-2 text-sm app-muted">
-                  Once your leaderboard data is available, this panel will show the leader, your rank, and who is just below you.
+                  When leaderboard data loads, this panel will show the leader, your rank, and the next person below you.
                 </div>
               </div>
             )}
@@ -796,10 +816,10 @@ export default function DashboardPage() {
           <div className="app-card p-6">
             <div className="flex flex-wrap items-start justify-between gap-3">
               <div>
-                <div className="app-chip">Challenge status</div>
-                <h2 className="mt-3 app-section-title">Current mission board</h2>
+                <div className="app-chip">Challenges</div>
+                <h2 className="mt-3 app-section-title">What's open now</h2>
                 <p className="mt-2 text-sm app-muted">
-                  A quick read on what’s currently active and which challenges may need evidence.
+                  A quick check of active challenges and whether any of them need evidence.
                 </p>
               </div>
               <Link to="/app/challenges" className="app-button-secondary">
@@ -865,7 +885,7 @@ export default function DashboardPage() {
                     No active challenges right now
                   </div>
                   <div className="mt-2 text-sm app-muted">
-                    Check the challenges area to browse past events or see when the next set opens.
+                    Check the challenges page to browse older ones or see when the next set opens.
                   </div>
                 </div>
               ) : null}
@@ -876,10 +896,10 @@ export default function DashboardPage() {
         <section className="app-card p-6">
         <div className="mb-5 flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
           <div className="space-y-1">
-            <div className="app-chip">Carbon journey</div>
-            <h2 className="app-section-title">Estimated impact over time</h2>
+            <div className="app-chip">Impact chart</div>
+            <h2 className="app-section-title">Recent estimates</h2>
             <p className="text-sm app-muted">
-              {dateRange === 7 ? "Last 7 days" : "Last 30 days"} based on logged actions.
+              {dateRange === 7 ? "Last 7 days" : "Last 30 days"} from your logged actions.
             </p>
           </div>
 
@@ -943,12 +963,12 @@ export default function DashboardPage() {
           <div className="rounded-2xl bg-red-50 p-4 text-sm text-red-700">{error}</div>
         ) : !hasChartData ? (
           <div className="rounded-[1.5rem] border border-dashed border-[rgb(var(--app-line))] bg-[rgb(var(--app-soft))]/60 p-6">
-            <div className="app-chip">No activity yet</div>
+            <div className="app-chip">No data yet</div>
             <h3 className="mt-4 text-xl font-semibold text-[rgb(var(--app-ink))]">
-              Start logging actions to build your impact timeline
+              Start logging actions to build this chart
             </h3>
             <p className="mt-2 max-w-2xl text-sm app-muted">
-              Once you add a few actions, this chart will show your estimated CO2e trend across the selected date range.
+              Once you add a few actions, this chart will show your estimated CO2e over the selected date range.
             </p>
             <div className="mt-5 flex flex-wrap gap-2">
               <Link to="/app/log-action" className="app-button-primary">
@@ -1022,33 +1042,35 @@ export default function DashboardPage() {
                 </div>
               </div>
               <div className="app-stat">
-                <div className="text-xs uppercase tracking-wide app-muted">Confidence</div>
-                <div className="mt-1 text-xl font-semibold text-emerald-700">Medium</div>
-                <div className="mt-1 text-xs app-muted">Estimates can vary by context.</div>
+                <div className="text-xs uppercase tracking-wide app-muted">Actions logged</div>
+                <div className="mt-1 text-xl font-semibold text-[rgb(var(--app-ink))]">
+                  {filteredLogs.length}
+                </div>
+                <div className="mt-1 text-xs app-muted">Entries included in this chart view.</div>
               </div>
             </div>
 
             <div className="mt-4 grid gap-3 lg:grid-cols-[1.1fr_0.9fr]">
               <div className="app-card-soft p-5">
-                <div className="text-xs uppercase tracking-wide app-muted">Current interpretation</div>
+                <div className="text-xs uppercase tracking-wide app-muted">What this looks like</div>
                 <div className="mt-2 text-lg font-semibold text-[rgb(var(--app-ink))]">
                   {activeDays >= Math.ceil(dateKeys.length / 2)
-                    ? "You’re building a steady routine."
-                    : "There’s room to build consistency."}
+                    ? "You're building a steady routine."
+                    : "There's room to build consistency."}
                 </div>
                 <p className="mt-2 text-sm app-muted">
                   {activeDays >= Math.ceil(dateKeys.length / 2)
-                    ? "You’ve logged impact on most days in this window, which is a strong base for challenges and streaks."
-                    : "Logging actions on more days will make your dashboard trend more meaningful and help your companion stay active."}
+                    ? "You've logged impact on most days in this window, which is a solid base for challenges and streaks."
+                    : "Logging actions on more days will make this trend more useful and help your pet stay active."}
                 </p>
               </div>
               <div className="app-card-soft p-5">
-                <div className="text-xs uppercase tracking-wide app-muted">Next move</div>
+                <div className="text-xs uppercase tracking-wide app-muted">Try next</div>
                 <div className="mt-2 text-lg font-semibold text-[rgb(var(--app-ink))]">
-                  Keep momentum visible
+                  Add another action soon
                 </div>
                 <p className="mt-2 text-sm app-muted">
-                  Try logging one more action in your most common category or jump into a challenge to convert progress into points.
+                  Logging one more action or joining a challenge will give this page something more useful to show.
                 </p>
                 <div className="mt-4 flex flex-wrap gap-2">
                   <Link to="/app/log-action" className="app-button-secondary">

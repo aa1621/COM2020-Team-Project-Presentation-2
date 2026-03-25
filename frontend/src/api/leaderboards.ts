@@ -4,15 +4,27 @@ import type {
   UserLeaderboardsResponse,
 } from "./types";
 
-export function getUserLeaderboards(groupId?: string) {
-  // optional group filter (for "My group" tab)
+type LeaderboardQuery = {
+  groupId?: string;
+  start?: string;
+  end?: string;
+};
+
+export function getUserLeaderboards(options: LeaderboardQuery = {}) {
   const params = new URLSearchParams();
-  if (groupId) params.set("group_id", groupId);
+  if (options.groupId) params.set("group_id", options.groupId);
+  if (options.start) params.set("start", options.start);
+  if (options.end) params.set("end", options.end);
   const suffix = params.toString() ? `?${params.toString()}` : "";
 
   return apiFetch<UserLeaderboardsResponse>(`/leaderboards/users${suffix}`);
 }
 
-export function getGroupLeaderboards() {
-  return apiFetch<GroupLeaderboardsResponse>("/leaderboards/groups");
+export function getGroupLeaderboards(options: Omit<LeaderboardQuery, "groupId"> = {}) {
+  const params = new URLSearchParams();
+  if (options.start) params.set("start", options.start);
+  if (options.end) params.set("end", options.end);
+  const suffix = params.toString() ? `?${params.toString()}` : "";
+
+  return apiFetch<GroupLeaderboardsResponse>(`/leaderboards/groups${suffix}`);
 }

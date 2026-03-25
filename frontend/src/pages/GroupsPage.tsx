@@ -1,11 +1,21 @@
 import { useEffect, useMemo, useState } from "react";
 import PageShell from "../components/PageShell";
+import ActionModal from "../components/ActionModal";
 import { getGroups, joinGroup } from "../api/groups";
 import { createInvite, getInvites, respondToInvite } from "../api/invites";
 import { useAuth } from "../auth/AuthProvider";
 import type { Group, GroupInvite } from "../api/types";
 
 type Tab = "Invites" | "My groups" | "Find group" | "Send invite";
+type GroupsModalState =
+  | {
+      tone: "success" | "danger" | "warning";
+      chip: string;
+      title: string;
+      description: string;
+      body?: string;
+    }
+  | null;
 
 export default function GroupsPage() {
   const { setUser, user } = useAuth();
@@ -24,7 +34,7 @@ export default function GroupsPage() {
   const [inviteTarget, setInviteTarget] = useState("");
   const [inviteMessage, setInviteMessage] = useState("");
   const [sendingInvite, setSendingInvite] = useState(false);
-  const [inviteResult, setInviteResult] = useState<string | null>(null);
+  const [modal, setModal] = useState<GroupsModalState>(null);
 
   useEffect(() => {
     async function load() {
@@ -80,7 +90,12 @@ export default function GroupsPage() {
 
   async function handleJoin(groupId: string | null) {
     if (!user) {
-      setError("Please log in before joining a group.");
+      setModal({
+        tone: "warning",
+        chip: "Sign in required",
+        title: "You need to log in first",
+        description: "Please sign in before joining or leaving a group.",
+      });
       return;
     }
 
@@ -89,8 +104,28 @@ export default function GroupsPage() {
     try {
       const res = await joinGroup(groupId);
       setUser(res.user);
+      setModal(
+        groupId
+          ? {
+              tone: "success",
+              chip: "Group updated",
+              title: "Group joined",
+              description: `You are now in ${res.group?.name || "this group"}.`,
+            }
+          : {
+              tone: "success",
+              chip: "Group updated",
+              title: "Group left",
+              description: "You have left your current group.",
+            }
+      );
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Could not update group.");
+      setModal({
+        tone: "danger",
+        chip: "Group update failed",
+        title: "The group was not updated",
+        description: err instanceof Error ? err.message : "Could not update group.",
+      });
     } finally {
       setJoining(null);
     }
@@ -104,7 +139,6 @@ export default function GroupsPage() {
 
     setInviteActionId(invite.invite_id);
     setError(null);
-    setInviteResult(null);
     try {
       const res = await respondToInvite(invite.invite_id, decision);
       setInvites((prev) =>
@@ -116,9 +150,22 @@ export default function GroupsPage() {
         setUser(updatedUser);
       }
 
-      setInviteResult(decision === "accept" ? "Invite accepted." : "Invite declined.");
+      setModal({
+        tone: "success",
+        chip: "Invite updated",
+        title: decision === "accept" ? "Invite accepted" : "Invite declined",
+        description:
+          decision === "accept"
+            ? `You joined ${invite.groups?.name || "the group"}.`
+            : "The invite was declined.",
+      });
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Could not respond to invite.");
+      setModal({
+        tone: "danger",
+        chip: "Invite update failed",
+        title: "The invite was not updated",
+        description: err instanceof Error ? err.message : "Could not respond to invite.",
+      });
     } finally {
       setInviteActionId(null);
     }
@@ -137,13 +184,17 @@ export default function GroupsPage() {
 
     const username = inviteTarget.trim();
     if (!username) {
-      setError("Enter a username to invite.");
+      setModal({
+        tone: "warning",
+        chip: "Username required",
+        title: "Enter a username first",
+        description: "Add the username of the person you want to invite.",
+      });
       return;
     }
 
     setSendingInvite(true);
     setError(null);
-    setInviteResult(null);
     try {
       const res = await createInvite(
         currentGroup.group_id,
@@ -154,18 +205,55 @@ export default function GroupsPage() {
       );
 
       const targetName = res.invitedUser.display_name || res.invitedUser.username;
-      setInviteResult(`Invite sent to ${targetName}.`);
+      setModal({
+        tone: "success",
+        chip: "Invite sent",
+        title: "Invitation created",
+        description: `Invite sent to ${targetName}.`,
+        body: inviteMessage.trim() ? `Message included: ${inviteMessage.trim()}` : undefined,
+      });
       setInviteTarget("");
       setInviteMessage("");
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Could not send invite.");
+      setModal({
+        tone: "danger",
+        chip: "Invite failed",
+        title: "The invite was not sent",
+        description: err instanceof Error ? err.message : "Could not send invite.",
+      });
     } finally {
       setSendingInvite(false);
     }
   }
 
   return (
-    <PageShell title="Groups" subtitle="Join societies, manage invites, and build community.">
+    <>
+      {modal ? (
+        <ActionModal
+          chip={modal.chip}
+          title={modal.title}
+          description={modal.description}
+          tone={modal.tone}
+          onClose={() => setModal(null)}
+          actions={
+            <button
+              type="button"
+              onClick={() => setModal(null)}
+              className="rounded-2xl bg-[rgb(var(--app-ink))] px-5 py-3 text-sm font-semibold text-white"
+            >
+              Close
+            </button>
+          }
+        >
+          {modal.body ? (
+            <div className="rounded-[1.35rem] border border-[rgb(var(--app-line))] bg-white/85 p-5 text-sm app-muted">
+              {modal.body}
+            </div>
+          ) : null}
+        </ActionModal>
+      ) : null}
+
+      <PageShell title="Groups" subtitle="Join societies, manage invites, and build community.">
       <div className="flex flex-wrap gap-2">
         {tabs.map((t) => (
           <button
@@ -182,12 +270,6 @@ export default function GroupsPage() {
 
       <div className="rounded-2xl border border-gray-100 bg-white/80 p-6 shadow-sm">
         {error && <div className="mb-4 rounded-xl bg-red-50 p-3 text-sm text-red-700">{error}</div>}
-
-        {inviteResult && (
-          <div className="mb-4 rounded-xl bg-emerald-50 p-3 text-sm text-emerald-700">
-            {inviteResult}
-          </div>
-        )}
 
         {loading && <div className="text-sm text-gray-600">Loading groups...</div>}
 
@@ -376,6 +458,7 @@ export default function GroupsPage() {
           </div>
         )}
       </div>
-    </PageShell>
+      </PageShell>
+    </>
   );
 }

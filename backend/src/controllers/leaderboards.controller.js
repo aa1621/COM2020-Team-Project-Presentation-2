@@ -3,6 +3,8 @@
 export async function listUserLeaderboards(req, res, next) {
     try {
         const groupId = req.query?.group_id || null;
+        const start = req.query?.start || null;
+        const end = req.query?.end || null;
 
         const { data: groups, error: groupError } = await supabaseAdmin
             .from("groups")
@@ -44,10 +46,15 @@ export async function listUserLeaderboards(req, res, next) {
 
         let logs = [];
         if (userIds.length > 0) {
-            const { data: actionLogs, error: logError } = await supabaseAdmin
+            let logsQuery = supabaseAdmin
                 .from("action_logs")
                 .select("user_id, score")
                 .in("user_id", userIds);
+
+            if (start) logsQuery = logsQuery.gte("action_date", start);
+            if (end) logsQuery = logsQuery.lte("action_date", end);
+
+            const { data: actionLogs, error: logError } = await logsQuery;
 
             if (logError) return next(logError);
             logs = actionLogs ?? [];
@@ -85,6 +92,9 @@ export async function listUserLeaderboards(req, res, next) {
 
 export async function listGroupLeaderboards(req, res, next) {
     try {
+        const start = req.query?.start || null;
+        const end = req.query?.end || null;
+
         const { data: groups, error: groupError } = await supabaseAdmin
             .from("groups")
             .select("group_id, name, type");
@@ -109,10 +119,15 @@ export async function listGroupLeaderboards(req, res, next) {
 
         let logs = [];
         if (userIds.length > 0) {
-            const { data: actionLogs, error: logError } = await supabaseAdmin
+            let logsQuery = supabaseAdmin
                 .from("action_logs")
                 .select("user_id, score")
                 .in("user_id", userIds);
+
+            if (start) logsQuery = logsQuery.gte("action_date", start);
+            if (end) logsQuery = logsQuery.lte("action_date", end);
+
+            const { data: actionLogs, error: logError } = await logsQuery;
 
             if (logError) return next(logError);
             logs = actionLogs ?? [];

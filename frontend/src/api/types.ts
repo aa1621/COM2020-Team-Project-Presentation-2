@@ -238,10 +238,7 @@ export type CreateChallengeSubmissionRequest = {
   total_co2e?: number;
   log_ids?: string[];
   evidence?: SubmissionEvidence | string | null;
-  groupId?: string | null;
   group_id?: string | null;
-  userId?: string;
-  user_id?: string;
 };
 
 export type CreateChallengeSubmissionResponse = {
