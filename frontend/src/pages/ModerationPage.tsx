@@ -1,10 +1,19 @@
 import { useEffect, useState } from "react";
 import PageShell from "../components/PageShell";
+import ActionModal from "../components/ActionModal";
 import { decideSubmission, getModerationQueue } from "../api/moderation";
 import { useAuth } from "../auth/AuthProvider";
 import type { ChallengeSubmission, SubmissionEvidence } from "../api/types";
 
 type QueueStatus = "pending_review" | "approved" | "rejected";
+type ModerationModalState =
+  | {
+      tone: "success" | "danger";
+      chip: string;
+      title: string;
+      description: string;
+    }
+  | null;
 
 function shortId(value: string) {
   return value.length > 12 ? `${value.slice(0, 8)}...` : value;
@@ -59,9 +68,9 @@ export default function ModerationPage() {
   const [queue, setQueue] = useState<ChallengeSubmission[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [result, setResult] = useState<string | null>(null);
   const [actingSubmissionId, setActingSubmissionId] = useState<string | null>(null);
   const [reason, setReason] = useState("");
+  const [modal, setModal] = useState<ModerationModalState>(null);
 
   const role = user?.role === "moderator" || user?.role === "maintainer" ? user.role : null;
 
@@ -88,7 +97,6 @@ export default function ModerationPage() {
 
     setActingSubmissionId(submissionId);
     setError(null);
-    setResult(null);
     try {
       const res = await decideSubmission(submissionId, decision, reason);
       setQueue((prev) => {
@@ -100,17 +108,51 @@ export default function ModerationPage() {
           item.submission_id === submissionId ? res.submission : item
         );
       });
-      setResult(`Submission ${decision === "approve" ? "approved" : "rejected"}.`);
+      setModal({
+        tone: "success",
+        chip: "Decision saved",
+        title: decision === "approve" ? "Submission approved" : "Submission rejected",
+        description:
+          decision === "approve"
+            ? "The submission was approved and removed from the pending queue."
+            : "The submission was rejected and removed from the pending queue.",
+      });
       setReason("");
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Could not submit moderation decision.");
+      setModal({
+        tone: "danger",
+        chip: "Decision failed",
+        title: "The moderation decision was not saved",
+        description:
+          err instanceof Error ? err.message : "Could not submit moderation decision.",
+      });
     } finally {
       setActingSubmissionId(null);
     }
   }
 
   return (
-    <PageShell
+    <>
+      {modal ? (
+        <ActionModal
+          chip={modal.chip}
+          title={modal.title}
+          description={modal.description}
+          tone={modal.tone}
+          onClose={() => setModal(null)}
+          actions={
+            <button
+              type="button"
+              onClick={() => setModal(null)}
+              className="rounded-2xl bg-[rgb(var(--app-ink))] px-5 py-3 text-sm font-semibold text-white"
+            >
+              Close
+            </button>
+          }
+        />
+      ) : null}
+
+      <PageShell
       title="Moderation"
       subtitle="Review flagged or evidence-based submissions and decide outcomes."
       right={
@@ -148,9 +190,6 @@ export default function ModerationPage() {
             />
 
             {error && <div className="rounded-xl bg-red-50 p-3 text-sm text-red-700">{error}</div>}
-            {result && (
-              <div className="rounded-xl bg-emerald-50 p-3 text-sm text-emerald-700">{result}</div>
-            )}
             {loading && <div className="text-sm text-gray-600">Loading queue...</div>}
             {!loading && queue.length === 0 && (
               <div className="rounded-xl bg-white p-4 text-sm text-gray-700">
@@ -229,6 +268,7 @@ export default function ModerationPage() {
           </>
         )}
       </div>
-    </PageShell>
+      </PageShell>
+    </>
   );
 }
