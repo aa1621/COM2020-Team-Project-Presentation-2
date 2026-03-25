@@ -6,6 +6,30 @@ const supabaseAuth = createClient(
     process.env.SUPABASE_PUBLISHABLE_KEY
 );
 
+function getPasswordValidationError(password) {
+    if (password.length < 8) {
+        return "Password must be at least 8 characters";
+    }
+
+    if (!/[a-z]/.test(password)) {
+        return "Password must include a lowercase letter";
+    }
+
+    if (!/[A-Z]/.test(password)) {
+        return "Password must include an uppercase letter";
+    }
+
+    if (!/\d/.test(password)) {
+        return "Password must include a number";
+    }
+
+    if (!/[^A-Za-z0-9]/.test(password)) {
+        return "Password must include a symbol";
+    }
+
+    return null;
+}
+
 export async function register(req, res, next) {
     try {
         const email = (req.body?.email || "").trim().toLowerCase();
@@ -19,8 +43,10 @@ export async function register(req, res, next) {
             });
         }
 
-        if (password.length < 8) {
-            return res.status(400).json({error: "Password must be at least 8 characters"});
+        const passwordError = getPasswordValidationError(password);
+
+        if (passwordError) {
+            return res.status(400).json({error: passwordError});
         }
 
         const {data: existingUser} = await supabaseAdmin
@@ -165,8 +191,14 @@ export async function refreshToken(req, res, next) {
 export async function changePassword(req, res, next) {
     try {
         const new_password = req.body?.new_password || "";
-        if (!new_password || new_password.length < 8) {
-            return res.status(400).json({error: "new_password must be at least 8 characters"});
+        if (!new_password) {
+            return res.status(400).json({error: "new_password is required"});
+        }
+
+        const passwordError = getPasswordValidationError(new_password);
+
+        if (passwordError) {
+            return res.status(400).json({error: passwordError});
         }
 
         const {error} = await supabaseAdmin.auth.admin.updateUserById(

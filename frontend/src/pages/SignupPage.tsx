@@ -4,6 +4,30 @@ import PageShell from "../components/PageShell";
 import { signup } from "../api/auth";
 import { useAuth } from "../auth/AuthProvider";
 
+function getPasswordValidationError(password: string) {
+  if (password.length < 8) {
+    return "Password must be at least 8 characters long.";
+  }
+
+  if (!/[a-z]/.test(password)) {
+    return "Password must include a lowercase letter.";
+  }
+
+  if (!/[A-Z]/.test(password)) {
+    return "Password must include an uppercase letter.";
+  }
+
+  if (!/\d/.test(password)) {
+    return "Password must include a number.";
+  }
+
+  if (!/[^A-Za-z0-9]/.test(password)) {
+    return "Password must include a symbol.";
+  }
+
+  return null;
+}
+
 export default function SignupPage() {
   const { isAuthenticated, setAuthState } = useAuth();
   const navigate = useNavigate();
@@ -28,8 +52,10 @@ export default function SignupPage() {
       return;
     }
 
-    if (password.length < 8) {
-      setError("Password must be at least 8 characters long.");
+    const passwordError = getPasswordValidationError(password);
+
+    if (passwordError) {
+      setError(passwordError);
       return;
     }
 
@@ -135,8 +161,11 @@ export default function SignupPage() {
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
                 autoComplete="new-password"
-                aria-invalid={Boolean(error && password.length > 0 && password.length < 8)}
+                aria-invalid={Boolean(error && password.length > 0 && getPasswordValidationError(password))}
               />
+              <p className="text-xs text-gray-500">
+                Use at least 8 characters with upper and lower case letters, a number, and a symbol.
+              </p>
             </div>
             <div className="space-y-1.5">
               <label htmlFor="signup-confirm-password" className="text-sm font-medium text-[rgb(var(--app-ink))]">

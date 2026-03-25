@@ -3,14 +3,11 @@ import { supabaseAdmin, supabaseUser } from "../lib/supabaseClient.js";
 export async function checkAndAwardBadges(userId) {
     try {
 
-        console.log("Badge check for user:", userId);
         const {data: badges} = await supabaseAdmin
             .from("badges")
             .select("*")
             .eq("is_active", true)
             .neq("trigger_type", "manual");
-
-        console.log("Active badges found:", badges?.length ?? 0);
 
         const {data: earned} = await supabaseAdmin
             .from("user_badges")
@@ -31,7 +28,6 @@ export async function checkAndAwardBadges(userId) {
             .eq("user_id", userId)
             .maybeSingle();
 
-        console.log("Pet stats:", pet);
 
         const {data: submissions} = await supabaseAdmin
             .from("submissions")
@@ -39,7 +35,6 @@ export async function checkAndAwardBadges(userId) {
             .eq("user_id", userId)
             .eq("status", "approved");
 
-        console.log("Approved submissions:", submissions?.length ?? 0);
 
         const {data: co2Row} = await supabaseAdmin
             .from("action_logs")
