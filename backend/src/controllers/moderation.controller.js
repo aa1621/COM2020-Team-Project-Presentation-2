@@ -2,6 +2,7 @@ import { supabaseAdmin } from "../lib/supabaseClient.js";
 import { checkAndAwardBadges } from "../services/badges.service.js";
 import { awardSubmissionApproved } from "../services/coins.service.js";
 import { requireModerator } from "../services/requireModerator.service.js";
+import { awardXP } from "../services/petXp.service.js";
 
 export async function getModerationQueue(req, res, next) {
     try {
@@ -92,6 +93,10 @@ export async function decideSubmission(req, res, next) {
 
         if (newStatus === "approved") {
             await awardSubmissionApproved(submission.user_id, submissionId);
+
+            const co2eKg = (updated.points ?? 0) / 10;
+            await awardXP(submission.user_id, co2eKg);
+            
             await checkAndAwardBadges(submission.user_id);
         } 
 

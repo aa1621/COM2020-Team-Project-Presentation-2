@@ -2,6 +2,7 @@ import { supabaseAdmin, supabaseUser } from '../lib/supabaseClient.js';
 import { checkAndAwardBadges } from '../services/badges.service.js';
 import { calculateCarbonFromFactor } from '../services/carbon.service.js';
 import { awardFirstLogOfDay, awardStreakMilestone } from '../services/coins.service.js';
+import { awardXP } from "../services/petXp.service.js";
 
 /* const DEMO_USER_ID =
     process.env.DEMO_USER_ID || "c1aae9c3-5157-4a26-a7b3-28d8905cfef0";
@@ -142,6 +143,7 @@ export async function createActionLog(req, res, next) {
 
         const newStreak = await updateStreak(userId);
         await healPet(userId);
+        await awardXP(userId, calc.estimateKgCO2e);
         await awardFirstLogOfDay(userId, inserted.log_id);
         await awardStreakMilestone(userId, newStreak);
         await checkAndAwardBadges(userId);
