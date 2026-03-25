@@ -1,4 +1,4 @@
-import { supabaseAdmin, supabaseUser } from "../lib/supabaseClient.js";
+import { supabaseAdmin } from "../lib/supabaseClient.js";
 
 // const DEMO_USER_ID = 
 //     process.env.DEMO_USER_ID || "c1aae9c3-5157-4a26-a7b3-28d8905cfef0";
@@ -17,7 +17,7 @@ export async function listInvites(req, res, next) {
         const userId = req.user.id;
         // if (!userId) return res.status(400).json({error: 'Missing "x-user-id" header'});
 
-        const {data, error} = await supabaseUser
+        const {data, error} = await supabaseAdmin
             .from("group_invites")
             .select(`
                 invite_id, group_id, invited_user_id, invited_by_user_id, status, message, created_at, responded_at,
